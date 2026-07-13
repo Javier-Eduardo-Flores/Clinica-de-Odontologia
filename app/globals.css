@@ -5,6 +5,16 @@
   --foreground: #31dac3;
 }
 
+@theme {
+  --font-inter: var(--font-inter), sans-serif;
+
+  --color-clinica-dark: #0C2B4E;
+  --color-clinica-medium: #1A3D64;
+  --color-clinica-accent: #1D546C;
+  --color-clinica-light: #F4F4F4;
+
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
