@@ -3,8 +3,21 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import {
+  validateEmail,
+  validatePassword,
+  validateName,
+  validateApellido,
+  validateDNI,
+  validateTelefono,
+  validateFechaNacimiento,
+  validateDireccion,
+  validateGenero,
+} from "@/utils/validations";
 
-export async function signIn(prevState:{error:string}|null, formData:FormData){
+export type AuthState = { error: string } | { success: boolean } | null;
+
+export async function signIn(prevState: AuthState, formData: FormData){
     const supabase = await createClient();
 
     const email = formData.get("email") as string;
@@ -27,15 +40,15 @@ export async function signIn(prevState:{error:string}|null, formData:FormData){
     redirect("/dashboard");
 }
 
-export async function signUp(prevState: {error: string} | null, formData: FormData){
+export async function signUp(prevState: AuthState, formData: FormData){
     const supabase = await createClient();
 
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const primer_nombre = formData.get("primer_nombre") as string;
-    const segundo_nombre = formData.get("segundo_nombre") as string;
+    const segundo_nombre = formData.get("segundo_nombre") as string || "";
     const primer_apellido = formData.get("primer_apellido") as string;
-    const segundo_apellido = formData.get("segundo_apellido") as string;
+    const segundo_apellido = formData.get("segundo_apellido") as string || "";
     const dni = formData.get("dni") as string;
     const telefono = formData.get("telefono") as string;
     const fecha_nacimiento = formData.get("fecha_nacimiento") as string;
@@ -46,12 +59,45 @@ export async function signUp(prevState: {error: string} | null, formData: FormDa
         return {error: "Completa todos los campos obligatorios"};
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return { error: "Email inválido" };
+    const eEmail = validateEmail(email);
+    if (eEmail) return { error: eEmail };
+
+    const ePass = validatePassword(password);
+    if (ePass) return { error: ePass };
+
+    const ePNombre = validateName(primer_nombre, true);
+    if (ePNombre) return { error: `Primer nombre: ${ePNombre}` };
+
+    const eSNombre = validateName(segundo_nombre, false);
+    if (eSNombre) return { error: `Segundo nombre: ${eSNombre}` };
+
+    const ePApellido = validateApellido(primer_apellido, true);
+    if (ePApellido) return { error: `Primer apellido: ${ePApellido}` };
+
+    const eSApellido = validateApellido(segundo_apellido, false);
+    if (eSApellido) return { error: `Segundo apellido: ${eSApellido}` };
+
+    const eDni = validateDNI(dni);
+    if (eDni) return { error: `DNI: ${eDni}` };
+
+    const eTel = validateTelefono(telefono);
+    if (eTel) return { error: `Teléfono: ${eTel}` };
+
+    const eFecha = validateFechaNacimiento(fecha_nacimiento);
+    if (eFecha) return { error: eFecha };
+
+    if (direccion) {
+        const eDir = validateDireccion(direccion);
+        if (eDir) return { error: `Dirección: ${eDir}` };
+    } else {
+        return { error: 'Dirección: Este campo es obligatorio' };
     }
 
-    if (password.length < 6) {
-        return { error: "La contraseña debe tener al menos 6 caracteres" };
+    if (genero) {
+        const eGen = validateGenero(genero);
+        if (eGen) return { error: eGen };
+    } else {
+        return { error: 'Seleccione un género' };
     }
 
     const {error} = await supabase.auth.signUp({
@@ -77,13 +123,12 @@ export async function signUp(prevState: {error: string} | null, formData: FormDa
         return {error: error.message};
 
     revalidatePath("/","layout");
-    redirect("/login");
-    //redirect("/login?message=Revisa tu email para confirmar");
-}   
+    return { success: true };
+}
 
 export async function signOut() {
     const supabase = await createClient();
     await supabase.auth.signOut();
     revalidatePath("/","layout");
     redirect("/login");
-}   
+}
