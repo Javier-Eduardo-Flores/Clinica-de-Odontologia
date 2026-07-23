@@ -134,7 +134,7 @@ export default function FacturaList({
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-clinica-dark p-5">
           <p className="text-sm text-gray-500 font-sans">Total Facturado</p>
           <p className="text-3xl font-sans font-bold text-gray-900">
-            ${totalIngresos.toLocaleString("es")}
+            L. {totalIngresos.toLocaleString("es", { minimumFractionDigits: 2 })}
           </p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-amber-500 p-5">
@@ -199,9 +199,11 @@ export default function FacturaList({
           <table className="w-full text-left">
             <thead>
               <tr className="text-xs font-sans font-bold text-gray-400 uppercase border-b border-gray-100">
+                <th className="py-3">No. Factura</th>
                 <th className="py-3">Paciente</th>
                 <th className="py-3">Fecha</th>
-                <th className="py-3">Subtotal</th>
+                <th className="py-3">Base</th>
+                <th className="py-3">ISV</th>
                 <th className="py-3">Total</th>
                 <th className="py-3">Estado</th>
                 <th className="py-3 text-right">Acciones</th>
@@ -211,8 +213,12 @@ export default function FacturaList({
               {facturasFiltradas.map((f) => {
                 const p = f.pacientes?.[0];
                 const badge = ESTADO_BADGE[f.estado] ?? { label: "Desconocido", classes: "bg-gray-100 text-gray-600" };
+                const noFactura = `FAC-${new Date(f.fecha).toISOString().slice(0, 7).replace("-", "")}-${f.id_factura.slice(0, 8).toUpperCase()}`;
                 return (
                   <tr key={f.id_factura} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                    <td className="py-4">
+                      <span className="font-sans font-mono text-xs text-gray-500 font-semibold">{noFactura}</span>
+                    </td>
                     <td className="py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-clinica-light flex items-center justify-center font-sans font-bold text-clinica-dark text-sm shrink-0">
@@ -227,10 +233,13 @@ export default function FacturaList({
                       {new Date(f.fecha).toLocaleDateString("es")}
                     </td>
                     <td className="py-4 font-sans text-gray-600 text-sm">
-                      ${Number(f.subtotal).toLocaleString("es")}
+                      L. {Number(f.subtotal).toLocaleString("es", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 font-sans text-blue-600 text-xs">
+                      L. {Number(f.impuestos).toLocaleString("es", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-4 font-sans font-bold text-gray-900">
-                      ${Number(f.total).toLocaleString("es")}
+                      L. {Number(f.total).toLocaleString("es", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-4">
                       <span className={`text-xs font-sans font-bold px-2 py-0.5 rounded-full ${badge.classes}`}>
@@ -324,7 +333,7 @@ function CrearFacturaModal({
   const [lineas, setLineas] = useState<DetalleLine[]>([
     { key: crypto.randomUUID(), tipo: "tratamiento", id_item: "", nombre: "", precio_unitario: 0, cantidad: 1, id_descuento: "", monto_descuento: 0 },
   ]);
-  const [impuestos, setImpuestos] = useState(0);
+  const [rtnPaciente, setRtnPaciente] = useState("");
 
   const agregarLinea = () => {
     setLineas([...lineas, { key: crypto.randomUUID(), tipo: "tratamiento", id_item: "", nombre: "", precio_unitario: 0, cantidad: 1, id_descuento: "", monto_descuento: 0 }]);
@@ -380,9 +389,12 @@ function CrearFacturaModal({
     );
   };
 
+  const TASA_ISV = 0.15;
   const subtotal = lineas.reduce((s, l) => s + l.precio_unitario * l.cantidad, 0);
+  const baseImponible = subtotal;
+  const isvMonto = baseImponible * TASA_ISV;
   const descuentoTotal = lineas.reduce((s, l) => s + l.monto_descuento, 0);
-  const total = subtotal + impuestos - descuentoTotal;
+  const total = baseImponible + isvMonto - descuentoTotal;
 
   const handleSubmit = (formData: FormData) => {
     const datos = lineas.map((l) => ({
@@ -394,7 +406,8 @@ function CrearFacturaModal({
       monto_descuento: l.monto_descuento,
     }));
     formData.set("detalles", JSON.stringify(datos));
-    formData.set("impuestos", String(impuestos));
+    formData.set("impuestos", String(isvMonto));
+    formData.set("rtn_paciente", rtnPaciente);
     createAction(formData);
   };
 
@@ -440,6 +453,18 @@ function CrearFacturaModal({
                   ))}
                 </select>
               )}
+            </div>
+            <div className="w-44">
+              <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">
+                RTN del Paciente <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={rtnPaciente}
+                onChange={(e) => setRtnPaciente(e.target.value)}
+                placeholder="0801-0000-000000"
+                className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+              />
             </div>
             <div className="w-40">
               <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Fecha</label>
@@ -500,7 +525,7 @@ function CrearFacturaModal({
                             const id = "id_tratamiento" in item ? item.id_tratamiento : item.id_producto;
                             return (
                               <option key={id} value={id}>
-                                {item.nombre} - ${Number(item.precio).toLocaleString("es")}
+                                {item.nombre} - L. {Number(item.precio).toLocaleString("es", { minimumFractionDigits: 2 })}
                               </option>
                             );
                           })}
@@ -516,7 +541,7 @@ function CrearFacturaModal({
                         />
                       </td>
                       <td className="py-2 px-2 text-xs font-sans text-gray-700">
-                        ${l.precio_unitario.toLocaleString("es")}
+                        L. {l.precio_unitario.toLocaleString("es", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2 px-2">
                         <select
@@ -533,7 +558,7 @@ function CrearFacturaModal({
                         </select>
                       </td>
                       <td className="py-2 px-2 text-xs font-sans font-semibold text-gray-900">
-                        ${((l.precio_unitario * l.cantidad) - l.monto_descuento).toLocaleString("es")}
+                        L. {((l.precio_unitario * l.cantidad) - l.monto_descuento).toLocaleString("es", { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-2 px-2">
                         <button
@@ -553,32 +578,31 @@ function CrearFacturaModal({
           </div>
 
           <div className="flex justify-end">
-            <div className="w-64 space-y-2">
+            <div className="w-72 space-y-1.5">
               <div className="flex justify-between text-sm font-sans text-gray-600">
-                <span>Subtotal</span>
-                <span>${subtotal.toLocaleString("es")}</span>
+                <span>Base Imponible (excluye ISV)</span>
+                <span>L. {baseImponible.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between text-sm font-sans text-gray-600 items-center">
-                <span>Impuestos</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={impuestos}
-                  onChange={(e) => setImpuestos(parseFloat(e.target.value) || 0)}
-                  className="w-28 text-right border border-gray-300 rounded py-1 px-2 font-sans text-sm focus:outline-none focus:ring-1 focus:ring-clinica-dark"
-                />
+              <div className="flex justify-between text-sm font-sans text-blue-700">
+                <span>
+                  ISV 15%
+                  <span className="text-xs text-gray-400 font-normal ml-1">(general)</span>
+                </span>
+                <span>L. {isvMonto.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
               </div>
               {descuentoTotal > 0 && (
                 <div className="flex justify-between text-sm font-sans text-green-600">
                   <span>Descuento</span>
-                  <span>-${descuentoTotal.toLocaleString("es")}</span>
+                  <span>- L. {descuentoTotal.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base font-sans font-bold text-gray-900 border-t border-gray-200 pt-2">
-                <span>Total</span>
-                <span>${total.toLocaleString("es")}</span>
+              <div className="flex justify-between text-base font-sans font-bold text-gray-900 border-t border-gray-200 pt-2 mt-1">
+                <span>Total a pagar</span>
+                <span>L. {total.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
               </div>
+              <p className="text-[10px] text-gray-400 font-sans text-right mt-1">
+                Documento generado por autoimpresor autorizado SAR
+              </p>
             </div>
           </div>
 
