@@ -58,11 +58,13 @@ export async function crearFactura(
 
   const subtotal = detalles.reduce((sum, d) => sum + d.cantidad * d.precio_unitario, 0);
 
+  const fechaFinal = fecha || new Date().toISOString().slice(0, 10);
+
   const { data: factura, error: errFactura } = await supabase
     .from("factura")
     .insert({
       id_paciente: idPaciente,
-      fecha: fecha || new Date().toISOString().slice(0, 10),
+      fecha: fechaFinal,
       subtotal,
       impuestos,
     })
@@ -70,6 +72,15 @@ export async function crearFactura(
     .single();
 
   if (errFactura) return { error: errFactura.message };
+
+  const noFactura = `FAC-${fechaFinal.slice(0, 7).replace("-", "")}-${factura.id_factura.slice(0, 8).toUpperCase()}`;
+
+  const { error: errNoFactura } = await supabase
+    .from("factura")
+    .update({ no_factura: noFactura })
+    .eq("id_factura", factura.id_factura);
+
+  if (errNoFactura) return { error: errNoFactura.message };
 
   const detallesInsert = detalles.map((d) => ({
     id_factura: factura.id_factura,

@@ -23,7 +23,7 @@ export default async function FacturacionPage() {
 
   const { data: facturas, error: errFacturas } = await supabase
     .from("factura")
-    .select("id_factura, fecha, subtotal, impuestos, descuento, total, estado, pacientes(primer_nombre, primer_apellido)")
+    .select("id_factura, no_factura, fecha, subtotal, impuestos, descuento, total, estado, pacientes(primer_nombre, primer_apellido)")
     .order("fecha", { ascending: false });
 
   const { data: pacientes, error: errPacientes } = await supabase

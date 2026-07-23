@@ -23,6 +23,7 @@ import {
 
 type Factura = {
   id_factura: string;
+  no_factura?: string;
   fecha: string;
   subtotal: number;
   impuestos: number;
@@ -213,7 +214,7 @@ export default function FacturaList({
               {facturasFiltradas.map((f) => {
                 const p = f.pacientes?.[0];
                 const badge = ESTADO_BADGE[f.estado] ?? { label: "Desconocido", classes: "bg-gray-100 text-gray-600" };
-                const noFactura = `FAC-${new Date(f.fecha).toISOString().slice(0, 7).replace("-", "")}-${f.id_factura.slice(0, 8).toUpperCase()}`;
+                const noFactura = f.no_factura || `FAC-${f.fecha.slice(0, 7).replace("-", "")}-${f.id_factura.slice(0, 8).toUpperCase()}`;
                 return (
                   <tr key={f.id_factura} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                     <td className="py-4">
