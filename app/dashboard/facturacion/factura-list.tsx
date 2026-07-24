@@ -6,7 +6,9 @@ import {
   crearFactura,
   actualizarEstadoFactura,
   eliminarFactura,
+  registrarPago,
   type FacturaState,
+  type PagoState,
 } from "@/app/actions/facturacion";
 import {
   Receipt,
@@ -42,6 +44,7 @@ type Paciente = {
 type Tratamiento = { id_tratamiento: string; nombre: string; precio: number };
 type Producto = { id_producto: string; nombre: string; precio: number };
 type Descuento = { id_descuento: string; nombre: string; tipo: "%" | "Lps"; valor: number };
+type MetodoPago = { id_metodo_pago: string; nombre: string };
 
 type DetalleLine = {
   key: string;
@@ -66,6 +69,7 @@ export default function FacturaList({
   tratamientos,
   productos,
   descuentos,
+  metodosPago,
   totalIngresos,
   facturasPendientes,
   facturasPagadas,
@@ -76,12 +80,14 @@ export default function FacturaList({
   tratamientos: Tratamiento[];
   productos: Producto[];
   descuentos: Descuento[];
+  metodosPago: MetodoPago[];
   totalIngresos: number;
   facturasPendientes: number;
   facturasPagadas: number;
   dbErrors?: Record<string, string | undefined>;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [pagoModal, setPagoModal] = useState<Factura | null>(null);
   const [detalleOpen, setDetalleOpen] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<number | "">("");
@@ -259,11 +265,11 @@ export default function FacturaList({
                         {f.estado === 1 && (
                           <>
                             <button
-                              onClick={() => cambiarEstado(f.id_factura, 2)}
+                              onClick={() => setPagoModal(f)}
                               className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors cursor-pointer"
-                              title="Marcar como pagada"
+                              title="Registrar pago"
                             >
-                              <Check size={16} />
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
                             </button>
                             <button
                               onClick={() => cambiarEstado(f.id_factura, 3)}
@@ -308,7 +314,127 @@ export default function FacturaList({
           createState={createState}
         />
       )}
+
+      {pagoModal && (
+        <PagoModal
+          factura={pagoModal}
+          metodosPago={metodosPago}
+          onClose={() => setPagoModal(null)}
+        />
+      )}
     </>
+  );
+}
+
+function PagoModal({
+  factura,
+  metodosPago,
+  onClose,
+}: {
+  factura: Factura;
+  metodosPago: MetodoPago[];
+  onClose: () => void;
+}) {
+  const [pagoState, pagoAction, pagoPending] = useActionState<PagoState, FormData>(registrarPago, null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (pagoState?.success) {
+      onClose();
+      router.refresh();
+    }
+  }, [pagoState, router, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 cursor-pointer">
+          <X size={20} />
+        </button>
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-600"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </div>
+          <div>
+            <h3 className="text-xl font-sans font-bold text-gray-900">Registrar Pago</h3>
+            <p className="text-xs text-gray-500 font-sans">{factura.no_factura || "Factura"}</p>
+          </div>
+        </div>
+
+        <form action={pagoAction} className="flex flex-col gap-4">
+          <input type="hidden" name="id_factura" value={factura.id_factura} />
+
+          {pagoState?.error && (
+            <p className="text-red-500 text-sm font-sans text-center bg-red-50 rounded-lg py-2">{pagoState.error}</p>
+          )}
+
+          <div>
+            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Método de Pago</label>
+            <select
+              name="id_metodo_pago"
+              required
+              defaultValue=""
+              className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+            >
+              <option value="">Seleccione un método</option>
+              {metodosPago.map((m) => (
+                <option key={m.id_metodo_pago} value={m.id_metodo_pago}>{m.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">
+              Monto <span className="text-gray-400 font-normal">(Total: L. {Number(factura.total).toLocaleString("es", { minimumFractionDigits: 2 })})</span>
+            </label>
+            <input
+              type="number"
+              name="monto"
+              step="0.01"
+              min="0.01"
+              max={factura.total}
+              required
+              placeholder="0.00"
+              className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">
+              Referencia <span className="text-gray-400 font-normal">(opcional)</span>
+            </label>
+            <input
+              type="text"
+              name="referencia"
+              placeholder="No. de operación, voucher, etc."
+              className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">
+              Observaciones <span className="text-gray-400 font-normal">(opcional)</span>
+            </label>
+            <textarea
+              name="observaciones"
+              rows={2}
+              placeholder="Notas adicionales..."
+              className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+            />
+          </div>
+
+          <div className="flex gap-3 mt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-sans font-semibold hover:bg-gray-50 transition-colors cursor-pointer">
+              Cancelar
+            </button>
+            <button type="submit" disabled={pagoPending} className="flex-1 py-2.5 bg-green-600 text-white font-sans font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 cursor-pointer">
+              {pagoPending ? "Procesando..." : "Registrar Pago"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -431,8 +557,8 @@ function CrearFacturaModal({
             <p className="text-red-500 text-sm font-sans text-center bg-red-50 rounded-lg py-2">{createState.error}</p>
           )}
 
-          <div className="flex gap-3">
-            <div className="flex-1">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
               <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Paciente</label>
               {pacientes.length === 0 ? (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
@@ -455,7 +581,7 @@ function CrearFacturaModal({
                 </select>
               )}
             </div>
-            <div className="w-44">
+            <div>
               <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">
                 RTN del Paciente <span className="text-gray-400 font-normal">(opcional)</span>
               </label>
@@ -467,15 +593,15 @@ function CrearFacturaModal({
                 className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
               />
             </div>
-            <div className="w-40">
-              <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Fecha</label>
-              <input
-                type="date"
-                name="fecha"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
-              />
-            </div>
+          </div>
+          <div className="w-48">
+            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Fecha</label>
+            <input
+              type="date"
+              name="fecha"
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+            />
           </div>
 
           <div>
@@ -587,7 +713,7 @@ function CrearFacturaModal({
               <div className="flex justify-between text-sm font-sans text-blue-700">
                 <span>
                   ISV 15%
-                  <span className="text-xs text-gray-400 font-normal ml-1">(general)</span>
+                  
                 </span>
                 <span>L. {isvMonto.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
               </div>
@@ -601,9 +727,7 @@ function CrearFacturaModal({
                 <span>Total a pagar</span>
                 <span>L. {total.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
               </div>
-              <p className="text-[10px] text-gray-400 font-sans text-right mt-1">
-                Documento generado por autoimpresor autorizado SAR
-              </p>
+
             </div>
           </div>
 

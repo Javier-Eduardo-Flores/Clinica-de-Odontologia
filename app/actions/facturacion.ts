@@ -129,6 +129,70 @@ export async function actualizarEstadoFactura(
   return { success: true };
 }
 
+export type PagoState = {
+  success?: boolean;
+  error?: string;
+} | null;
+
+export async function registrarPago(
+  prevState: PagoState,
+  formData: FormData
+): Promise<PagoState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "No autorizado" };
+
+  const idFactura = formData.get("id_factura") as string;
+  const idMetodoPago = formData.get("id_metodo_pago") as string;
+  const monto = parseFloat(formData.get("monto") as string) || 0;
+  const referencia = (formData.get("referencia") as string) || "";
+  const observaciones = (formData.get("observaciones") as string) || "";
+
+  if (!idMetodoPago) return { error: "Seleccione un método de pago" };
+  if (monto <= 0) return { error: "Ingrese un monto válido" };
+
+  const { data: factura, error: errFact } = await supabase
+    .from("factura")
+    .select("id_paciente, total, estado")
+    .eq("id_factura", idFactura)
+    .single();
+
+  if (errFact || !factura) return { error: "Factura no encontrada" };
+
+  const { error: errPago } = await supabase.from("pagos").insert({
+    id_factura: idFactura,
+    id_metodo_pago: idMetodoPago,
+    id_paciente: factura.id_paciente,
+    monto,
+    referencia: referencia || null,
+    observaciones: observaciones || null,
+    fecha_pago: new Date().toISOString(),
+  });
+
+  if (errPago) return { error: errPago.message };
+
+  const { data: pagos } = await supabase
+    .from("pagos")
+    .select("monto")
+    .eq("id_factura", idFactura);
+
+  const totalPagado = pagos?.reduce((s, p) => s + Number(p.monto), 0) ?? 0;
+  const nuevoEstado = totalPagado >= Number(factura.total) ? 2 : 1;
+
+  const { error: errUpdate } = await supabase
+    .from("factura")
+    .update({ estado: nuevoEstado })
+    .eq("id_factura", idFactura);
+
+  if (errUpdate) return { error: errUpdate.message };
+
+  revalidatePath("/dashboard/facturacion");
+  return { success: true };
+}
+
 export async function eliminarFactura(idFactura: string): Promise<FacturaState> {
   const supabase = await createClient();
 

@@ -48,6 +48,12 @@ export default async function FacturacionPage() {
     .eq("activo", true)
     .order("nombre");
 
+  const { data: metodosPago, error: errMetodosPago } = await supabase
+    .from("metodo_pago")
+    .select("id_metodo_pago, nombre")
+    .eq("activo", true)
+    .order("nombre");
+
   const totalIngresos = facturas?.reduce((sum, f) => sum + Number(f.total), 0) ?? 0;
   const facturasPendientes = facturas?.filter((f) => f.estado === 1).length ?? 0;
   const facturasPagadas = facturas?.filter((f) => f.estado === 2).length ?? 0;
@@ -86,6 +92,7 @@ export default async function FacturacionPage() {
             tratamientos={tratamientos ?? []}
             productos={productos ?? []}
             descuentos={descuentos ?? []}
+            metodosPago={metodosPago ?? []}
             totalIngresos={totalIngresos}
             facturasPendientes={facturasPendientes}
             facturasPagadas={facturasPagadas}
@@ -94,6 +101,7 @@ export default async function FacturacionPage() {
               tratamientos: errTratamientos?.message,
               productos: errProductos?.message,
               descuentos: errDescuentos?.message,
+              metodosPago: errMetodosPago?.message,
             }}
           />
         </main>
