@@ -70,6 +70,7 @@ export default function FacturaList({
   productos,
   descuentos,
   metodosPago,
+  pagosPorFactura,
   totalIngresos,
   facturasPendientes,
   facturasPagadas,
@@ -81,6 +82,7 @@ export default function FacturaList({
   productos: Producto[];
   descuentos: Descuento[];
   metodosPago: MetodoPago[];
+  pagosPorFactura: Record<string, number>;
   totalIngresos: number;
   facturasPendientes: number;
   facturasPagadas: number;
@@ -113,6 +115,11 @@ export default function FacturaList({
     const matchEstado = estadoFilter === "" || f.estado === estadoFilter;
     return matchSearch && matchEstado;
   });
+
+  const saldoPendiente = (f: Factura) => {
+    const pagado = pagosPorFactura[f.id_factura] || 0;
+    return Math.max(0, Number(f.total) - pagado);
+  };
 
   const cambiarEstado = async (id: string, estado: number) => {
     await actualizarEstadoFactura(id, estado);
@@ -209,9 +216,9 @@ export default function FacturaList({
                 <th className="py-3">No. Factura</th>
                 <th className="py-3">Paciente</th>
                 <th className="py-3">Fecha</th>
-                <th className="py-3">Base</th>
-                <th className="py-3">ISV</th>
                 <th className="py-3">Total</th>
+                <th className="py-3">Pagado</th>
+                <th className="py-3">Saldo</th>
                 <th className="py-3">Estado</th>
                 <th className="py-3 text-right">Acciones</th>
               </tr>
@@ -221,6 +228,8 @@ export default function FacturaList({
                 const p = f.pacientes?.[0];
                 const badge = ESTADO_BADGE[f.estado] ?? { label: "Desconocido", classes: "bg-gray-100 text-gray-600" };
                 const noFactura = f.no_factura || `FAC-${f.fecha.slice(0, 7).replace("-", "")}-${f.id_factura.slice(0, 8).toUpperCase()}`;
+                const pagado = pagosPorFactura[f.id_factura] || 0;
+                const saldo = saldoPendiente(f);
                 return (
                   <tr key={f.id_factura} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                     <td className="py-4">
@@ -239,14 +248,20 @@ export default function FacturaList({
                     <td className="py-4 text-gray-600 font-sans text-sm">
                       {new Date(f.fecha).toLocaleDateString("es")}
                     </td>
-                    <td className="py-4 font-sans text-gray-600 text-sm">
-                      L. {Number(f.subtotal).toLocaleString("es", { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-4 font-sans text-blue-600 text-xs">
-                      L. {Number(f.impuestos).toLocaleString("es", { minimumFractionDigits: 2 })}
-                    </td>
                     <td className="py-4 font-sans font-bold text-gray-900">
                       L. {Number(f.total).toLocaleString("es", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 font-sans text-green-600 text-sm">
+                      L. {pagado.toLocaleString("es", { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-4 font-sans text-sm" data-saldo={saldo}>
+                      {saldo > 0 ? (
+                        <span className="text-amber-600 font-semibold">
+                          L. {saldo.toLocaleString("es", { minimumFractionDigits: 2 })}
+                        </span>
+                      ) : (
+                        <span className="text-green-600">L. 0.00</span>
+                      )}
                     </td>
                     <td className="py-4">
                       <span className={`text-xs font-sans font-bold px-2 py-0.5 rounded-full ${badge.classes}`}>
@@ -319,6 +334,7 @@ export default function FacturaList({
         <PagoModal
           factura={pagoModal}
           metodosPago={metodosPago}
+          pagosPorFactura={pagosPorFactura}
           onClose={() => setPagoModal(null)}
         />
       )}
@@ -329,12 +345,16 @@ export default function FacturaList({
 function PagoModal({
   factura,
   metodosPago,
+  pagosPorFactura,
   onClose,
 }: {
   factura: Factura;
   metodosPago: MetodoPago[];
+  pagosPorFactura: Record<string, number>;
   onClose: () => void;
 }) {
+  const pagado = pagosPorFactura[factura.id_factura] || 0;
+  const pendiente = Math.max(0, Number(factura.total) - pagado);
   const [pagoState, pagoAction, pagoPending] = useActionState<PagoState, FormData>(registrarPago, null);
   const router = useRouter();
 
@@ -384,16 +404,28 @@ function PagoModal({
             </select>
           </div>
 
+          <div className="bg-blue-50 rounded-lg p-3 mb-2">
+            <div className="flex justify-between text-sm font-sans">
+              <span className="text-gray-600">Total factura</span>
+              <span className="font-semibold text-gray-900">L. {Number(factura.total).toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-sm font-sans mt-1">
+              <span className="text-gray-600">Ya pagado</span>
+              <span className="font-semibold text-green-600">L. {pagado.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-sm font-sans mt-1 pt-1 border-t border-blue-200">
+              <span className="font-semibold text-gray-700">Saldo pendiente</span>
+              <span className="font-bold text-amber-600">L. {pendiente.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
           <div>
-            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">
-              Monto <span className="text-gray-400 font-normal">(Total: L. {Number(factura.total).toLocaleString("es", { minimumFractionDigits: 2 })})</span>
-            </label>
+            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Monto a pagar</label>
             <input
               type="number"
               name="monto"
               step="0.01"
               min="0.01"
-              max={factura.total}
+              max={pendiente}
               required
               placeholder="0.00"
               className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"

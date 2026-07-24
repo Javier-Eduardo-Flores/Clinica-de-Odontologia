@@ -54,6 +54,15 @@ export default async function FacturacionPage() {
     .eq("activo", true)
     .order("nombre");
 
+  const { data: pagos } = await supabase
+    .from("pagos")
+    .select("id_factura, monto");
+
+  const pagosPorFactura: Record<string, number> = {};
+  pagos?.forEach((p) => {
+    pagosPorFactura[p.id_factura] = (pagosPorFactura[p.id_factura] || 0) + Number(p.monto);
+  });
+
   const totalIngresos = facturas?.reduce((sum, f) => sum + Number(f.total), 0) ?? 0;
   const facturasPendientes = facturas?.filter((f) => f.estado === 1).length ?? 0;
   const facturasPagadas = facturas?.filter((f) => f.estado === 2).length ?? 0;
@@ -93,6 +102,7 @@ export default async function FacturacionPage() {
             productos={productos ?? []}
             descuentos={descuentos ?? []}
             metodosPago={metodosPago ?? []}
+            pagosPorFactura={pagosPorFactura}
             totalIngresos={totalIngresos}
             facturasPendientes={facturasPendientes}
             facturasPagadas={facturasPagadas}
