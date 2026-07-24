@@ -1,15 +1,7 @@
 import { AlertTriangle, Pill, HeartPulse } from "lucide-react";
 import type { ExpedienteData } from "./expediente.types";
 
-/**
- * Banner de alerta médica. Pensado para incrustarse en la vista general
- * del paciente (p. ej. /dashboard/pacientes/[id], propiedad del
- * Integrante 1) y también se usa en /dashboard/expediente.
- *
- * Uso:
- *   const expediente = await obtenerExpediente(idPaciente);
- *   <AlertaMedica expediente={expediente} />
- */
+
 export default function AlertaMedica({ expediente }: { expediente: ExpedienteData | null }) {
   const tieneAlertas =
     !!expediente?.alergias || !!expediente?.patologias_previas || !!expediente?.medicacion_habitual;
