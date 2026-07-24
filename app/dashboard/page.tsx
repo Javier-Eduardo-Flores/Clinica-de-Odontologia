@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
 import StatCard from "@/app/components/statcard";
+import TratamientoForm from "@/app/components/tratamientoform";
 import {
   User,
   CalendarCheck,
   DollarSign,
   Bell,
-  Pencil,
   Search,
   Stethoscope,
   Clock,
@@ -227,9 +227,8 @@ async function DashboardOdontologo({
                       <td className="py-4 text-gray-600 font-sans text-sm max-w-xs truncate">{t.descripcion}</td>
                       <td className="py-4 font-sans font-semibold text-gray-900">${Number(t.precio).toLocaleString("es")}</td>
                       <td className="py-4">
-                        <Link href={`/dashboard/tratamientos/${t.id_tratamiento}/editar`} className="text-gray-400 hover:text-clinica-dark">
-                          <Pencil size={16} />
-                        </Link>
+                        <TratamientoForm mode="editar" tratamiento={t} >
+                        </TratamientoForm>
                       </td>
                     </tr>
                   ))}

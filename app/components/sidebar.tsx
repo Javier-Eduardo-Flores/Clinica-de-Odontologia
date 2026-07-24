@@ -8,7 +8,7 @@ const menuItems = [
     { label: "Citas", icon: Calendar, href: "/dashboard/citas" },
     { label: "Pacientes", icon: User, href: "/dashboard/pacientes" },
     { label: "Personal", icon: Users, href: "/dashboard/personal" },
-    { label: "Inventario", icon: Package, href: "/dashboard/inventory" },
+    { label: "Inventario", icon: Package, href: "/dashboard/inventario" },
     { label: "Facturación", icon: Receipt, href: "/dashboard/facturacion" },
 ];
 
