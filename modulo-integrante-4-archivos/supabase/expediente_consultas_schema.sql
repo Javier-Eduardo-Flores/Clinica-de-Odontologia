@@ -1,22 +1,3 @@
--- =====================================================================
--- MÓDULO: Expediente Clínico y Atención de Consultas (Integrante 4)
--- Ejecutar completo en Supabase SQL Editor.
---
--- Supone que ya existen en el proyecto:
---   profiles(id_profile, rol)
---   pacientes(id_paciente)            -- FK -> profiles.id_profile
---   odontologos(id_odontologo)        -- FK -> profiles.id_profile
---   citas(id_cita, id_usuario, ...)   -- id_usuario FK -> profiles.id_profile (paciente)
---   tratamiento(id_tratamiento, nombre, precio)
---
--- Si algún nombre no coincide exactamente con tu base real, ajústalo
--- antes de ejecutar (avísame y lo corrijo).
--- =====================================================================
-
--- ---------------------------------------------------------------------
--- 1. TABLAS
--- ---------------------------------------------------------------------
-
 CREATE TABLE IF NOT EXISTS expediente (
   id_expediente        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   id_paciente           UUID NOT NULL UNIQUE REFERENCES pacientes(id_paciente) ON DELETE CASCADE,
@@ -64,21 +45,11 @@ CREATE TRIGGER trg_expediente_fecha_actualizacion
   FOR EACH ROW
   EXECUTE FUNCTION public.set_fecha_actualizacion_expediente();
 
--- ---------------------------------------------------------------------
--- 2. ROW LEVEL SECURITY
---    Regla del módulo: lectura estricta para pacientes (solo lo suyo),
---    lectura/escritura total para doctor y admin. Recepcionista NO
---    tiene acceso a datos clínicos.
--- ---------------------------------------------------------------------
 
 ALTER TABLE expediente ENABLE ROW LEVEL SECURITY;
 ALTER TABLE consultas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE detalle_consultas ENABLE ROW LEVEL SECURITY;
 
--- Helper implícito reutilizado en varias políticas:
---   EXISTS (SELECT 1 FROM profiles WHERE id_profile = auth.uid() AND rol IN ('admin','doctor'))
-
--- ===== expediente =====
 
 CREATE POLICY "Paciente ve su propio expediente"
 ON expediente FOR SELECT
@@ -208,15 +179,7 @@ USING (
   EXISTS (SELECT 1 FROM profiles WHERE id_profile = auth.uid() AND rol = 'admin')
 );
 
--- ---------------------------------------------------------------------
--- 3. OPERACIÓN TRANSACCIONAL (RPC)
---    Inserta 1 fila en `consultas` y N filas en `detalle_consultas`
---    dentro de una sola transacción atómica. SECURITY INVOKER: respeta
---    las políticas RLS de arriba (no escala privilegios).
---
---    p_tratamientos: jsonb con forma
---    [{ "id_tratamiento": "uuid", "cantidad": 1, "notas": "texto" }, ...]
--- ---------------------------------------------------------------------
+
 
 CREATE OR REPLACE FUNCTION public.registrar_consulta(
   p_id_cita       UUID,
@@ -252,7 +215,7 @@ BEGIN
     );
   END LOOP;
 
-  -- Marca la cita como completada (estado 4, ver ESTADO_CITA en el frontend)
+
   UPDATE citas SET estado = 4 WHERE id_cita = p_id_cita;
 
   RETURN v_id_consulta;
