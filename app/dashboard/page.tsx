@@ -24,6 +24,9 @@ import {
 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { signOut } from "@/app/actions/auth";
+import { confirmarCitaStaff } from "@/app/actions/citas";
+import { obtenerDientesConEstado } from "@/app/actions/obtener-dientes";
+import { Odontograma } from "@/app/components/odontograma/Odontograma";
 
 
 const ESTADO_CITA = {
@@ -137,6 +140,14 @@ async function DashboardOdontologo({
     .select("id_factura, fecha, total, estado, pacientes(primer_nombre, primer_apellido)")
     .order("fecha", { ascending: false })
     .limit(4);
+
+  // CITAS PENDIENTES DE CONFIRMAR
+  const { data: citasPendientes } = await supabase
+    .from("citas")
+    .select("id_cita, fecha_cita, motivo, pacientes(primer_nombre, primer_apellido)")
+    .eq("estado", 1)
+    .order("fecha_cita", { ascending: true })
+    .limit(5);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -260,6 +271,55 @@ async function DashboardOdontologo({
             </div>
           </div>
 
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-sans font-bold text-gray-900">Citas Pendientes de Confirmar</h2>
+            </div>
+
+            {!citasPendientes || citasPendientes.length === 0 ? (
+              <p className="text-sm text-gray-400 font-sans">No hay citas pendientes por confirmar.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {citasPendientes.map((c) => (
+                  <div
+                    key={c.id_cita}
+                    className="flex items-center justify-between border border-gray-100 rounded-lg p-4"
+                  >
+                    <div>
+                      <p className="font-sans font-semibold text-gray-900 text-sm">
+                        {c.pacientes?.[0]?.primer_nombre} {c.pacientes?.[0]?.primer_apellido}
+                      </p>
+                      <p className="text-xs text-gray-500 font-sans mt-0.5">{c.motivo}</p>
+                      <p className="text-xs text-gray-400 font-sans mt-0.5">
+                        {new Date(c.fecha_cita).toLocaleString("es-HN", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/dashboard/citas/${c.id_cita}/editar`}
+                        className="text-gray-700 font-sans font-semibold text-sm px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                      >
+                        Modificar
+                      </Link>
+                      <form action={confirmarCitaStaff}>
+                        <input type="hidden" name="id_cita" value={c.id_cita} />
+                        <button
+                          type="submit"
+                          className="bg-clinica-dark text-white font-sans font-semibold text-sm px-4 py-2 rounded-lg hover:bg-clinica-medium transition-colors"
+                        >
+                          Confirmar
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="bg-white rounded-xl shadow-sm p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-sans font-bold text-gray-900">Pacientes Recientes</h2>
@@ -377,6 +437,9 @@ async function DashboardPaciente({
   }));
 
   const tratamientosCompletados = historial.length;
+
+  // ODONTOGRAMA — dientes del paciente con su estado más reciente
+  const dientes = await obtenerDientesConEstado(userId);
 
   // SALDO PENDIENTE: total facturado - total pagado
   const { data: facturasData } = await supabase
@@ -556,20 +619,12 @@ async function DashboardPaciente({
                         </div>
 
                         {c.estado === ESTADO_CITA.PENDIENTE && (
-                          <div className="flex items-center gap-2">
-                            <Link
-                              href={`/dashboard/citas/${c.id_cita}/editar`}
-                              className="flex-1 text-center text-xs font-sans font-semibold py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
-                            >
-                              Modificar
-                            </Link>
-                            <Link
-                              href={`/dashboard/citas/${c.id_cita}/confirmar`}
-                              className="flex-1 text-center text-xs font-sans font-semibold py-2 rounded-lg bg-clinica-dark text-white hover:bg-clinica-medium"
-                            >
-                              Confirmar
-                            </Link>
-                          </div>
+                          <Link
+                            href={`/dashboard/citas/${c.id_cita}/editar`}
+                            className="block text-center text-xs font-sans font-semibold py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                          >
+                            Modificar
+                          </Link>
                         )}
                       </div>
                     );
@@ -582,8 +637,8 @@ async function DashboardPaciente({
             <div className="col-span-2 bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-sans font-bold text-gray-900">Historial de Tratamientos</h2>
-                <Link href="/dashboard/expediente" className="text-sm font-sans font-semibold text-clinica-dark hover:underline flex items-center gap-1">
-                  Ver expediente completo <ChevronRight size={14} />
+                <Link href="#odontograma" className="text-sm font-sans font-semibold text-clinica-dark hover:underline flex items-center gap-1">
+                  Ver odontograma completo <ChevronRight size={14} />
                 </Link>
               </div>
 
@@ -610,9 +665,9 @@ async function DashboardPaciente({
                         </td>
                         <td className="py-4 text-gray-600 font-sans text-sm">{h.doctor}</td>
                         <td className="py-4">
-                          <Link href={`/dashboard/expediente/${h.id_consulta}`} className="text-gray-400 hover:text-clinica-dark">
+                          <span title={h.diagnostico ?? "Sin diagnóstico registrado"} className="text-gray-400 inline-block">
                             <Eye size={16} />
-                          </Link>
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -620,6 +675,15 @@ async function DashboardPaciente({
                 </table>
               )}
             </div>
+          </div>
+
+          {/* Odontograma */}
+          <div id="odontograma" className="bg-white rounded-xl shadow-sm p-6 mb-8 scroll-mt-8">
+            <h2 className="text-xl font-sans font-bold text-gray-900 mb-1">Mi Odontograma</h2>
+            <p className="text-sm text-gray-400 font-sans mb-4">
+              Estado más reciente registrado por tu odontólogo en cada diente.
+            </p>
+            <Odontograma dientes={dientes} />
           </div>
 
           {/* Tarjetas informativas — identidad propia del portal */}
