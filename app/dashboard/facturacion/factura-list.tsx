@@ -25,14 +25,15 @@ import {
 
 type Factura = {
   id_factura: string;
+  id_paciente: string;
   no_factura?: string;
+  tipo_documento?: string;
   fecha: string;
   subtotal: number;
   impuestos: number;
   descuento: number;
   total: number;
   estado: number;
-  pacientes: { primer_nombre: string; primer_apellido: string }[] | null;
 };
 
 type Paciente = {
@@ -71,6 +72,7 @@ export default function FacturaList({
   descuentos,
   metodosPago,
   pagosPorFactura,
+  detallesPorFactura,
   totalIngresos,
   facturasPendientes,
   facturasPagadas,
@@ -83,6 +85,7 @@ export default function FacturaList({
   descuentos: Descuento[];
   metodosPago: MetodoPago[];
   pagosPorFactura: Record<string, number>;
+  detallesPorFactura: Record<string, any[]>;
   totalIngresos: number;
   facturasPendientes: number;
   facturasPagadas: number;
@@ -108,8 +111,10 @@ export default function FacturaList({
     }
   }, [createState, router]);
 
+  const buscarPaciente = (id: string) => pacientes.find(pa => pa.id_paciente === id);
+
   const facturasFiltradas = facturas.filter((f) => {
-    const p = f.pacientes?.[0];
+    const p = buscarPaciente(f.id_paciente);
     const nombre = p ? `${p.primer_nombre} ${p.primer_apellido}`.toLowerCase() : "";
     const matchSearch = nombre.includes(searchTerm.toLowerCase());
     const matchEstado = estadoFilter === "" || f.estado === estadoFilter;
@@ -225,7 +230,7 @@ export default function FacturaList({
             </thead>
             <tbody>
               {facturasFiltradas.map((f) => {
-                const p = f.pacientes?.[0];
+                const p = buscarPaciente(f.id_paciente);
                 const badge = ESTADO_BADGE[f.estado] ?? { label: "Desconocido", classes: "bg-gray-100 text-gray-600" };
                 const noFactura = f.no_factura || `FAC-${f.fecha.slice(0, 7).replace("-", "")}-${f.id_factura.slice(0, 8).toUpperCase()}`;
                 const pagado = pagosPorFactura[f.id_factura] || 0;
@@ -298,7 +303,8 @@ export default function FacturaList({
                         <button
                           onClick={async () => {
                             if (confirm("¿Está seguro de eliminar esta factura?")) {
-                              await eliminarFactura(f.id_factura);
+                              const res = await eliminarFactura(f.id_factura);
+                              if (res?.error) alert(res.error);
                               router.refresh();
                             }
                           }}
@@ -329,6 +335,19 @@ export default function FacturaList({
           createState={createState}
         />
       )}
+
+      {detalleOpen && (() => {
+        const f = facturas.find((f) => f.id_factura === detalleOpen)!;
+        return (
+          <DetalleModal
+            factura={f}
+            paciente={buscarPaciente(f.id_paciente)}
+            detalles={detallesPorFactura[detalleOpen] || []}
+            pagado={pagosPorFactura[detalleOpen] || 0}
+            onClose={() => setDetalleOpen(null)}
+          />
+        );
+      })()}
 
       {pagoModal && (
         <PagoModal
@@ -379,6 +398,11 @@ function PagoModal({
           <div>
             <h3 className="text-xl font-sans font-bold text-gray-900">Registrar Pago</h3>
             <p className="text-xs text-gray-500 font-sans">{factura.no_factura || "Factura"}</p>
+            {factura.tipo_documento && (
+              <p className="text-xs text-gray-400 font-sans">
+                {factura.tipo_documento === "01" ? "Factura" : "Recibo por Honorarios Profesionales"}
+              </p>
+            )}
           </div>
         </div>
 
@@ -465,6 +489,123 @@ function PagoModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function DetalleModal({
+  factura,
+  paciente,
+  detalles,
+  pagado,
+  onClose,
+}: {
+  factura: Factura;
+  paciente: Paciente | undefined;
+  detalles: any[];
+  pagado: number;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 relative max-h-[90vh] overflow-y-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 cursor-pointer">
+          <X size={20} />
+        </button>
+
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+            <Receipt size={20} className="text-clinica-dark" />
+          </div>
+          <div>
+            <h3 className="text-xl font-sans font-bold text-gray-900">Detalle de Factura</h3>
+            <p className="text-xs text-gray-500 font-mono">{factura.no_factura}</p>
+            {factura.tipo_documento && (
+              <p className="text-xs text-gray-400 font-sans mt-0.5">
+                {factura.tipo_documento === "01" ? "Factura" : "Recibo por Honorarios Profesionales"}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-400 font-sans">Paciente</p>
+              <p className="font-sans font-semibold text-gray-900">
+                {paciente ? `${paciente.primer_nombre} ${paciente.primer_apellido}` : "Sin paciente"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 font-sans">Fecha</p>
+              <p className="font-sans text-gray-900">{new Date(factura.fecha).toLocaleDateString("es")}</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-400 font-sans mb-2">Líneas de la factura</p>
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-xs font-sans font-bold text-gray-400 uppercase border-b border-gray-100">
+                  <th className="py-2">Item</th>
+                  <th className="py-2 w-16 text-right">Cant.</th>
+                  <th className="py-2 w-24 text-right">P. Unit.</th>
+                  <th className="py-2 w-24 text-right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detalles.map((d, i) => {
+                  const nombre = d.tratamiento?.nombre || d.producto?.nombre || "—";
+                  const subtotal = Number(d.cantidad) * Number(d.precio_unitario) - Number(d.monto_descuento);
+                  return (
+                    <tr key={i} className="border-b border-gray-50 text-sm">
+                      <td className="py-2 font-sans text-gray-900">{nombre}</td>
+                      <td className="py-2 font-sans text-gray-600 text-right">{d.cantidad}</td>
+                      <td className="py-2 font-sans text-gray-600 text-right">L. {Number(d.precio_unitario).toLocaleString("es", { minimumFractionDigits: 2 })}</td>
+                      <td className="py-2 font-sans font-semibold text-gray-900 text-right">L. {subtotal.toLocaleString("es", { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="border-t border-gray-200 pt-3 space-y-1">
+            <div className="flex justify-between text-sm font-sans text-gray-600">
+              <span>Subtotal</span>
+              <span>L. {Number(factura.subtotal).toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-sm font-sans text-gray-600">
+              <span>ISV 15%</span>
+              <span>L. {Number(factura.impuestos).toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+            </div>
+            {Number(factura.descuento) > 0 && (
+              <div className="flex justify-between text-sm font-sans text-green-600">
+                <span>Descuento</span>
+                <span>- L. {Number(factura.descuento).toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-base font-sans font-bold text-gray-900 border-t border-gray-200 pt-1">
+              <span>Total</span>
+              <span>L. {Number(factura.total).toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between text-sm font-sans text-green-600">
+              <span>Pagado</span>
+              <span>L. {pagado.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+            </div>
+            {Number(factura.total) - pagado > 0 && (
+              <div className="flex justify-between text-sm font-sans text-amber-600 font-semibold">
+                <span>Saldo pendiente</span>
+                <span>L. {(Number(factura.total) - pagado).toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button onClick={onClose} className="w-full mt-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-sans font-semibold hover:bg-gray-50 transition-colors cursor-pointer">
+          Cerrar
+        </button>
       </div>
     </div>
   );
@@ -626,14 +767,27 @@ function CrearFacturaModal({
               />
             </div>
           </div>
-          <div className="w-48">
-            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Fecha</label>
-            <input
-              type="date"
-              name="fecha"
-              defaultValue={new Date().toISOString().slice(0, 10)}
-              className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
-            />
+          <div className="flex gap-3">
+            <div className="w-48">
+              <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Tipo Documento</label>
+              <select
+                name="tipo_documento"
+                defaultValue="01"
+                className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+              >
+                <option value="01">01 - Factura</option>
+                <option value="02">02 - Recibo Honorarios</option>
+              </select>
+            </div>
+            <div className="w-48">
+              <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Fecha</label>
+              <input
+                type="date"
+                name="fecha"
+                defaultValue={new Date().toISOString().slice(0, 10)}
+                className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+              />
+            </div>
           </div>
 
           <div>

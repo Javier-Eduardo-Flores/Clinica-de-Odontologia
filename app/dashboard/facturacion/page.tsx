@@ -23,8 +23,20 @@ export default async function FacturacionPage() {
 
   const { data: facturas, error: errFacturas } = await supabase
     .from("factura")
-    .select("id_factura, no_factura, fecha, subtotal, impuestos, descuento, total, estado, pacientes(primer_nombre, primer_apellido)")
+    .select("id_factura, id_paciente, no_factura, tipo_documento, fecha, subtotal, impuestos, descuento, total, estado")
     .order("fecha", { ascending: false });
+
+  const idsFacturas = (facturas ?? []).map((f) => f.id_factura);
+  const { data: detalles } = idsFacturas.length > 0 ? await supabase
+    .from("detalle_factura")
+    .select("id_factura, cantidad, precio_unitario, monto_descuento, tratamiento(nombre), producto(nombre), descuento(nombre)")
+    .in("id_factura", idsFacturas) : { data: [] };
+
+  const detallesPorFactura: Record<string, any[]> = {};
+  detalles?.forEach((d) => {
+    if (!detallesPorFactura[d.id_factura]) detallesPorFactura[d.id_factura] = [];
+    detallesPorFactura[d.id_factura].push(d);
+  });
 
   const { data: pacientes, error: errPacientes } = await supabase
     .from("pacientes")
@@ -103,6 +115,7 @@ export default async function FacturacionPage() {
             descuentos={descuentos ?? []}
             metodosPago={metodosPago ?? []}
             pagosPorFactura={pagosPorFactura}
+            detallesPorFactura={detallesPorFactura}
             totalIngresos={totalIngresos}
             facturasPendientes={facturasPendientes}
             facturasPagadas={facturasPagadas}

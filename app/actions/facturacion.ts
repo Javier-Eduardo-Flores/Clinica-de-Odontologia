@@ -30,9 +30,11 @@ export async function crearFactura(
   const fecha = formData.get("fecha") as string;
   const impuestos = parseFloat(formData.get("impuestos") as string) || 0;
   const detallesRaw = formData.get("detalles") as string;
+  const tipoDocumento = formData.get("tipo_documento") as string || "01";
 
   const fieldErrors: Record<string, string> = {};
   if (!idPaciente) fieldErrors.id_paciente = "Seleccione un paciente";
+  if (!["01", "02"].includes(tipoDocumento)) fieldErrors.tipo_documento = "Tipo de documento inválido";
 
   let detalles: {
     id_tratamiento?: string;
@@ -60,6 +62,22 @@ export async function crearFactura(
 
   const fechaFinal = fecha || new Date().toISOString().slice(0, 10);
 
+  const prefix = `000-001-${tipoDocumento}-`;
+  const { data: lastInvoice } = await supabase
+    .from("factura")
+    .select("no_factura")
+    .like("no_factura", `${prefix}%`)
+    .order("no_factura", { ascending: false })
+    .limit(1);
+
+  let nextCorr = 1;
+  if (lastInvoice?.[0]?.no_factura) {
+    const lastNum = parseInt(lastInvoice[0].no_factura.slice(-8), 10);
+    if (!isNaN(lastNum)) nextCorr = lastNum + 1;
+  }
+
+  const noFactura = `${prefix}${String(nextCorr).padStart(8, "0")}`;
+
   const { data: factura, error: errFactura } = await supabase
     .from("factura")
     .insert({
@@ -67,20 +85,13 @@ export async function crearFactura(
       fecha: fechaFinal,
       subtotal,
       impuestos,
+      tipo_documento: tipoDocumento,
+      no_factura: noFactura,
     })
     .select("id_factura")
     .single();
 
   if (errFactura) return { error: errFactura.message };
-
-  const noFactura = `FAC-${fechaFinal.slice(0, 7).replace("-", "")}-${factura.id_factura.slice(0, 8).toUpperCase()}`;
-
-  const { error: errNoFactura } = await supabase
-    .from("factura")
-    .update({ no_factura: noFactura })
-    .eq("id_factura", factura.id_factura);
-
-  if (errNoFactura) return { error: errNoFactura.message };
 
   const detallesInsert = detalles.map((d) => ({
     id_factura: factura.id_factura,
@@ -200,6 +211,20 @@ export async function eliminarFactura(idFactura: string): Promise<FacturaState> 
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "No autorizado" };
+
+  const { error: errDetalles } = await supabase
+    .from("detalle_factura")
+    .delete()
+    .eq("id_factura", idFactura);
+
+  if (errDetalles) return { error: errDetalles.message };
+
+  const { error: errPagos } = await supabase
+    .from("pagos")
+    .delete()
+    .eq("id_factura", idFactura);
+
+  if (errPagos) return { error: errPagos.message };
 
   const { error } = await supabase
     .from("factura")
