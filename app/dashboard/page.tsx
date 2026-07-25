@@ -209,7 +209,7 @@ async function DashboardOdontologo({
             <StatCard
               icon={DollarSign} iconColor="text-clinica-dark" iconBg="bg-blue-50" borderColor="border-clinica-dark"
               badge="" badgeColor=""
-              value={`$${ingresosMensuales.toLocaleString("es")}`}
+              value={`L. ${ingresosMensuales.toLocaleString("es")}`}
               label="Ingresos del mes actual"
             />
           </div>
@@ -236,7 +236,7 @@ async function DashboardOdontologo({
                     <tr key={t.id_tratamiento} className="border-b border-gray-50 last:border-0">
                       <td className="py-4 font-sans font-semibold text-gray-900">{t.nombre}</td>
                       <td className="py-4 text-gray-600 font-sans text-sm max-w-xs truncate">{t.descripcion}</td>
-                      <td className="py-4 font-sans font-semibold text-gray-900">${Number(t.precio).toLocaleString("es")}</td>
+                      <td className="py-4 font-sans font-semibold text-gray-900">L. {Number(t.precio).toLocaleString("es")}</td>
                       <td className="py-4">
                         <TratamientoForm mode="editar" tratamiento={t} >
                         </TratamientoForm>
@@ -345,7 +345,7 @@ async function DashboardOdontologo({
                         </p>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Factura por ${Number(f.total).toLocaleString("es")}
+                        Factura por L. {Number(f.total).toLocaleString("es")}
                       </p>
                       <span className="text-[10px] font-sans font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 mt-2 inline-block">
                         Estado: {f.estado}

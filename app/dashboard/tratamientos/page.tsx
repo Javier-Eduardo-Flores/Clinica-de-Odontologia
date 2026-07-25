@@ -38,7 +38,7 @@ export default async function TratamientosPage() {
                         <tr key={t.id_tratamiento} className="border-b border-gray-100 last:border-0">
                             <td className="px-6 py-4 font-sans font-semibold text-gray-900">{t.nombre}</td>
                             <td className="px-6 py-4 text-gray-600 font-sans text-sm">{t.descripcion}</td>
-                            <td className="px-6 py-4 font-sans font-semibold">${Number(t.precio).toLocaleString("es")}</td>
+                            <td className="px-6 py-4 font-sans font-semibold">L. {Number(t.precio).toLocaleString("es")}</td>
                             <td className="px-6 py-4">
                                 <TratamientoForm mode="editar" tratamiento={t} />
                             </td>
