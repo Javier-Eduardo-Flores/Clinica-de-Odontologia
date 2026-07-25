@@ -45,3 +45,4 @@ supabase/add_no_factura.sql
 supabase/rls_facturacion.sql
 supabase/sar_format.sql
 
+*.zip
