@@ -35,7 +35,7 @@ export default async function InventarioPage() {
     return (
     <tr key={p.id_producto} className="border-b border-gray-100 last:border-0">
     <td className="px-6 py-4 font-sans font-semibold text-gray-900">{p.nombre}</td>
-    <td className="px-6 py-4 font-sans">${Number(p.precio).toLocaleString("es")}</td>
+    <td className="px-6 py-4 font-sans">L. {Number(p.precio).toLocaleString("es")}</td>
     <td className="px-6 py-4">
     <StockEditor id={p.id_producto} stockActual={p.stock} unidad={p.unidad_medida} />
     </td>
