@@ -7,7 +7,7 @@ import TratamientoForm from "@/app/components/tratamientoform";
 import {
   User,
   CalendarCheck,
-  DollarSign,
+  PiggyBank,
   Bell,
   Search,
   Stethoscope,
@@ -207,7 +207,7 @@ async function DashboardOdontologo({
               }
             />
             <StatCard
-              icon={DollarSign} iconColor="text-clinica-dark" iconBg="bg-blue-50" borderColor="border-clinica-dark"
+              icon={PiggyBank} iconColor="text-clinica-dark" iconBg="bg-blue-50" borderColor="border-clinica-dark"
               badge="" badgeColor=""
               value={`L. ${ingresosMensuales.toLocaleString("es")}`}
               label="Ingresos del mes actual"
