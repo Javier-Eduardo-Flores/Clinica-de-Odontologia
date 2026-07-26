@@ -5,10 +5,22 @@ import { Plus, ClipboardList } from "lucide-react";
 import ConsultaAcciones from "@/app/components/consultaacciones";
 
 export default async function ConsultasPage() {
-  const supabase = await createClient();
+type ConsultaConRelaciones = {
+    id_consulta: string;
+    fecha: string;
+    diagnostico: string;
+    citas: {
+    fecha_cita: string;
+    motivo: string;
+    profiles: { nombre: string; apellido: string } | null;
+    } | null;
+    odontologos: { primer_nombre: string; primer_apellido: string } | null;
+};
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: perfil } = await supabase
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: perfil } = await supabase
     .from("profiles")
     .select("rol")
     .eq("id_profile", user?.id)
@@ -25,7 +37,8 @@ export default async function ConsultasPage() {
         citas ( fecha_cita, motivo, profiles ( nombre, apellido ) ),
         odontologos ( primer_nombre, primer_apellido )
     `)
-    .order("fecha", { ascending: false });
+    .order("fecha", { ascending: false })
+    .returns<ConsultaConRelaciones[]>();
     
     return (
         <div className="flex min-h-screen bg-gray-50">

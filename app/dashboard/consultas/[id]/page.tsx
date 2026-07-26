@@ -10,6 +10,20 @@ export default async function DetalleConsultaPage({
 }: {
     params: Promise<{ id: string }>;
 }) {
+    type CitaConPaciente = {
+        id_usuario: string;
+        fecha_cita: string;
+        motivo: string;
+        profiles: { nombre: string; apellido: string } | null;
+};
+    type DetalleConTratamiento = {
+        detalle_consulta_id: string;
+        id_tratamiento: string;
+        cantidad: number;
+        observaciones: string | null;
+        tratamiento: { nombre: string; precio: number } | null;
+};
+
     const { id } = await params;
     const supabase = await createClient();
 
@@ -36,7 +50,8 @@ export default async function DetalleConsultaPage({
         .from("citas")
         .select("id_usuario, fecha_cita, motivo, profiles(nombre, apellido)")
         .eq("id_cita", consulta.id_cita)
-        .maybeSingle();
+        .maybeSingle()
+        .returns<CitaConPaciente>();;
 
     const { data: odontologo } = await supabase
         .from("odontologos")
@@ -47,7 +62,8 @@ export default async function DetalleConsultaPage({
     const { data: detalles } = await supabase
         .from("detalle_consultas")
         .select("detalle_consulta_id, id_tratamiento, cantidad, observaciones, tratamiento(nombre, precio)")
-        .eq("id_consulta", id);
+        .eq("id_consulta", id)
+        .returns<DetalleConTratamiento[]>();
 
     const { data: catalogoTratamientos } = await supabase
         .from("tratamiento")

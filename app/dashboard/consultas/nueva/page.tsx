@@ -5,13 +5,22 @@ import { ArrowLeft, ClipboardPlus } from "lucide-react";
 import Link from "next/link";
 
 export default async function NuevaConsultaPage() {
+    // Agrega este tipo arriba del componente
+    type CitaDisponible = {
+        id_cita: string;
+        fecha_cita: string;
+        motivo: string;
+        profiles: { nombre: string; apellido: string } | null;
+    };
+
     const supabase = await createClient();
     
     const { data: todasCitas } = await supabase
     .from("citas")
     .select("id_cita, fecha_cita, motivo, profiles(nombre, apellido)")
     .order("fecha_cita", { ascending: false })
-    .limit(50);
+    .limit(50)
+    .returns<CitaDisponible[]>();
 
     const { data: citasConConsulta } = await supabase
     .from("consultas")
