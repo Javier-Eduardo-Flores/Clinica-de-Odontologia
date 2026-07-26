@@ -3,7 +3,7 @@
 import type { DienteConEstado } from './odontograma.types';
 import { calcularPosicion } from './odontograma.config';
 
-const COLOR_CELESTE = '#38BDF8';
+const COLOR_CELESTE = '#86d0f0';
 const COLOR_ROJO = '#EF4444';
 
 const ANCHO = 45;
@@ -14,14 +14,17 @@ const TOOTH_PATH =
 export function Diente({ diente }: { diente: DienteConEstado }) {
   const { x, y } = calcularPosicion(diente.cuadrante, diente.posicion);
 
-  // Si el estado viene marcado como "malo" o con color rojo, usa rojo; si no, el celeste.
   const colorEstado = diente.estadoActual?.color?.toUpperCase();
   const esRojo = colorEstado === '#EF4444' || colorEstado === '#FF0000' || diente.estadoActual?.nombre?.toLowerCase() === 'malo';
   
   const colorFinal = esRojo ? COLOR_ROJO : COLOR_CELESTE;
 
   return (
-    <g transform={`translate(${x}, ${y})`} data-fdi={diente.numero_fdi}>
+    <g transform={`translate(${x},${y})`} data-fdi={diente.numero_fdi}>
+      
+      {/* MAGIA AQUÍ: Esta etiqueta crea el tooltip automáticamente */}
+      <title>{`Diente ${diente.numero_fdi} -${diente.nombre || 'Nombre no disponible'}`}</title>
+      
       <path d={TOOTH_PATH} fill={colorFinal} stroke="#374151" strokeWidth={1.5} />
       <text x={ANCHO / 2} y={ALTO + 14} textAnchor="middle" fontSize={10}>
         {diente.numero_fdi}
