@@ -75,10 +75,9 @@ export default async function PacientesPage({
           ) : (
             <div className="grid grid-cols-2 gap-4">
               {pacientes.map((p) => (
-                <Link
+                <div
                   key={p.id_paciente}
-                  href={"/dashboard/pacientes/" + p.id_paciente + "/odontograma"}
-                  className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4 hover:border-clinica-dark border border-transparent transition-colors"
+                  className="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4"
                 >
                   <div className="w-11 h-11 rounded-full bg-clinica-light flex items-center justify-center font-sans font-bold text-clinica-dark shrink-0">
                     {p.primer_nombre?.[0]}{p.primer_apellido?.[0]}
@@ -89,8 +88,14 @@ export default async function PacientesPage({
                     </p>
                     <p className="text-xs text-gray-400">{p.correo}</p>
                   </div>
-                  <Smile size={18} className="text-gray-300" />
-                </Link>
+                  <Link
+                    href={"/dashboard/pacientes/" + p.id_paciente + "/expediente"}
+                    className="flex items-center gap-1.5 text-xs font-sans font-semibold text-clinica-dark border border-clinica-dark px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <Smile size={14} />
+                    Expediente
+                  </Link>
+                </div>
               ))}
             </div>
           )}

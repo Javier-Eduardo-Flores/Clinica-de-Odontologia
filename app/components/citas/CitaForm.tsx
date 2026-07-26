@@ -3,12 +3,17 @@
 
 import { useActionState } from "react";
 import { agendarCita } from "@/app/actions/citas";
-import { Calendar, Clock, FileText } from "lucide-react";
+import { Calendar, Clock, Stethoscope } from "lucide-react";
 
-export default function CitaForm() {
+interface Tratamiento {
+  id_tratamiento: string;
+  nombre: string;
+  precio: number;
+}
+
+export default function CitaForm({ tratamientos }: { tratamientos: Tratamiento[] }) {
   const [state, formAction, pending] = useActionState(agendarCita, null);
 
-  // Valor mínimo para el input date: hoy (no se puede agendar en el pasado)
   const hoy = new Date().toISOString().split("T")[0];
 
   return (
@@ -51,19 +56,24 @@ export default function CitaForm() {
       </div>
 
       <div>
-        <label className="block text-sm font-sans font-semibold text-gray-700 mb-1" htmlFor="motivo">
+        <label className="block text-sm font-sans font-semibold text-gray-700 mb-1" htmlFor="id_tratamiento">
           Motivo de la cita
         </label>
         <div className="relative">
-          <FileText className="absolute left-3 top-3 text-gray-400" size={18} />
-          <textarea
-            id="motivo"
-            name="motivo"
+          <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select
+            id="id_tratamiento"
+            name="id_tratamiento"
             required
-            rows={3}
-            placeholder="Ej. Limpieza dental de rutina, dolor en muela, revisión general..."
-            className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark resize-none"
-          />
+            className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark appearance-none bg-white"
+          >
+            <option value="">Selecciona un tratamiento</option>
+            {tratamientos.map((t) => (
+              <option key={t.id_tratamiento} value={t.id_tratamiento}>
+                {t.nombre} — L. {Number(t.precio).toLocaleString("es-HN")}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

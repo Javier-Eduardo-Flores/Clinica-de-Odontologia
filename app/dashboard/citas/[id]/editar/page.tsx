@@ -27,7 +27,7 @@ export default async function EditarCitaPage({
 
   const { data: cita } = await supabase
     .from("citas")
-    .select("id_cita, fecha_cita, motivo, estado, id_usuario")
+    .select("id_cita, fecha_cita, motivo, estado, id_usuario, id_tratamiento")
     .eq("id_cita", id)
     .maybeSingle();
 
@@ -45,6 +45,11 @@ export default async function EditarCitaPage({
   const fechaObj = new Date(cita.fecha_cita);
   const fechaInicial = fechaObj.toISOString().split("T")[0];
   const horaInicial = fechaObj.toTimeString().slice(0, 5);
+
+  const { data: tratamientos } = await supabase
+    .from("tratamiento")
+    .select("id_tratamiento, nombre, precio")
+    .order("nombre", { ascending: true });
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
@@ -73,7 +78,8 @@ export default async function EditarCitaPage({
             idCita={cita.id_cita}
             fechaInicial={fechaInicial}
             horaInicial={horaInicial}
-            motivoInicial={cita.motivo}
+            idTratamientoInicial={cita.id_tratamiento}
+            tratamientos={tratamientos ?? []}
           />
         </div>
       </div>

@@ -16,6 +16,11 @@ export default async function NuevaCitaPage() {
     redirect("/login");
   }
 
+  const { data: tratamientos } = await supabase
+    .from("tratamiento")
+    .select("id_tratamiento, nombre, precio")
+    .order("nombre", { ascending: true });
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
       <div className="w-full max-w-md">
@@ -36,10 +41,10 @@ export default async function NuevaCitaPage() {
             Agendar Nueva Cita
           </h1>
           <p className="text-center text-gray-500 font-sans text-sm mb-6">
-            Elige una fecha, hora y cuéntanos brevemente el motivo de tu visita.
+            Elige una fecha, hora y el tratamiento que necesitas.
           </p>
 
-          <CitaForm />
+          <CitaForm tratamientos={tratamientos ?? []} />
         </div>
       </div>
     </div>
