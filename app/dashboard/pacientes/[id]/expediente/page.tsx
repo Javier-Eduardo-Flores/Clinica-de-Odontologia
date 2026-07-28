@@ -5,6 +5,7 @@ import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
 import { ArrowLeft, Smile, Calendar, Clock } from "lucide-react";
 import ExpedienteForm from "@/app/components/expediente/ExpedienteForm";
+import AlertaMedicaBanner from "@/app/components/expediente/AlertaMedicaBanner";
 import { Odontograma } from "@/app/components/odontograma/Odontograma";
 import { obtenerDientesConEstado } from "@/app/actions/obtener-dientes";
 import ActualizarOdontogramaForm from "@/app/components/odontograma/ActualizarOdontogramaForm";
@@ -116,6 +117,11 @@ export default async function ExpedientePacientePage({
           <p className="text-gray-500 font-sans mb-6">
             DNI: {paciente.dni} · {paciente.correo} · {paciente.telefono}
           </p>
+
+          <AlertaMedicaBanner
+            medicamentos={expediente?.medicamentos_actuales ?? null}
+            observaciones={expediente?.observaciones ?? null}
+          />
 
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
             <h2 className="text-xl font-sans font-bold text-gray-900 mb-4">
