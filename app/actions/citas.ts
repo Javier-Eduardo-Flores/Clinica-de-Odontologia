@@ -25,9 +25,10 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
   const fecha = formData.get("fecha") as string; // "2026-08-15"
   const hora = formData.get("hora") as string;   // "10:30"
   const id_tratamiento = formData.get("id_tratamiento") as string;
+  const id_odontologo = formData.get("id_odontologo") as string; // 👈 ¡Agregado aquí!
 
-  if (!fecha || !hora || !id_tratamiento) {
-    return { error: "Completa todos los campos." };
+  if (!fecha || !hora || !id_tratamiento || !id_odontologo) { // 👈 ¡Incluido en la validación!
+    return { error: "Completa todos los campos, incluyendo el odontólogo." };
   }
 
   const fechaCita = new Date(`${fecha}T${hora}:00`);
@@ -40,9 +41,6 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
     return { error: "Elige una fecha y hora futura." };
   }
 
-  // El motivo se llena automáticamente con el nombre del tratamiento
-  // elegido, así todo el resto del código que muestra `motivo` sigue
-  // funcionando sin cambios.
   const { data: tratamiento } = await supabase
     .from("tratamiento")
     .select("nombre")
@@ -58,6 +56,7 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
     fecha_cita: fechaCita.toISOString(),
     motivo: tratamiento.nombre,
     id_tratamiento,
+    id_odontologo, // 👈 ¡Enviado a Supabase!
     estado: 1, // Pendiente
   });
 
@@ -99,10 +98,7 @@ export async function confirmarCitaStaff(formData: FormData) {
 }
 
 /**
- * Modifica fecha, hora y motivo de una cita existente.
- * El paciente solo puede editar su propia cita mientras esté
- * PENDIENTE (lo aplica la política RLS). El personal clínico puede
- * editar cualquier cita.
+ * Modifica fecha, hora, tratamiento y odontólogo de una cita existente.
  */
 export async function modificarCita(prevState: CitaState, formData: FormData): Promise<CitaState> {
   const supabase = await createClient();
@@ -116,8 +112,9 @@ export async function modificarCita(prevState: CitaState, formData: FormData): P
   const fecha = formData.get("fecha") as string;
   const hora = formData.get("hora") as string;
   const id_tratamiento = formData.get("id_tratamiento") as string;
+  const id_odontologo = formData.get("id_odontologo") as string; // 👈 ¡Agregado aquí también!
 
-  if (!id_cita || !fecha || !hora || !id_tratamiento) {
+  if (!id_cita || !fecha || !hora || !id_tratamiento || !id_odontologo) { // 👈 ¡Incluido aquí!
     return { error: "Completa todos los campos." };
   }
 
@@ -147,6 +144,7 @@ export async function modificarCita(prevState: CitaState, formData: FormData): P
       fecha_cita: fechaCita.toISOString(),
       motivo: tratamiento.nombre,
       id_tratamiento,
+      id_odontologo, // 👈 ¡Actualizado en Supabase!
     })
     .eq("id_cita", id_cita);
 
@@ -212,8 +210,6 @@ export async function completarCitaConConsulta(
     return { error: "El diagnóstico es obligatorio." };
   }
 
-  // Necesitamos el paciente y el tratamiento elegido al agendar,
-  // para poder generar la factura automáticamente.
   const { data: cita, error: errorCitaInfo } = await supabase
     .from("citas")
     .select("id_usuario, id_tratamiento")
@@ -239,8 +235,6 @@ export async function completarCitaConConsulta(
     return { error: "No se pudo crear la consulta: " + (errorConsulta?.message ?? "") };
   }
 
-  // Si la cita tenía un tratamiento asociado, generamos el detalle
-  // de la consulta Y la factura automáticamente.
   if (cita.id_tratamiento) {
     await supabase.from("detalle_consultas").insert({
       id_consulta: consulta.id_consulta,
@@ -256,7 +250,7 @@ export async function completarCitaConConsulta(
 
     if (tratamiento) {
       const subtotal = Number(tratamiento.precio);
-      const impuestos = Number((subtotal * 0.15).toFixed(2)); // ISV 15% — AJUSTA si tu clínica usa otra tasa
+      const impuestos = Number((subtotal * 0.15).toFixed(2));
       const total = Number((subtotal + impuestos).toFixed(2));
 
       const { data: factura } = await supabase
@@ -292,4 +286,4 @@ export async function completarCitaConConsulta(
 
   revalidatePath("/dashboard/citas");
   redirect("/dashboard/citas");
-}
+}  
