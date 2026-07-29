@@ -3,7 +3,7 @@
 
 import { useActionState } from "react";
 import { modificarCita } from "@/app/actions/citas";
-import { Calendar, Clock, Stethoscope } from "lucide-react";
+import { Calendar, Clock, Stethoscope, UserCircle } from "lucide-react";
 
 interface Tratamiento {
   id_tratamiento: string;
@@ -11,15 +11,31 @@ interface Tratamiento {
   precio: number;
 }
 
-interface Props {
-  idCita: string;
-  fechaInicial: string; // "2026-08-15"
-  horaInicial: string;  // "10:30"
-  idTratamientoInicial: string | null;
-  tratamientos: Tratamiento[];
+interface Odontologo {
+  id_odontologo: string;
+  primer_nombre: string;
+  primer_apellido: string;
 }
 
-export default function EditarCitaForm({ idCita, fechaInicial, horaInicial, idTratamientoInicial, tratamientos }: Props) {
+interface Props {
+  idCita: string;
+  fechaInicial: string;
+  horaInicial: string;
+  idTratamientoInicial: string | null;
+  idOdontologoInicial: string | null;
+  tratamientos: Tratamiento[];
+  odontologos: Odontologo[];
+}
+
+export default function EditarCitaForm({ 
+  idCita, 
+  fechaInicial, 
+  horaInicial, 
+  idTratamientoInicial, 
+  idOdontologoInicial, 
+  tratamientos, 
+  odontologos 
+}: Props) {
   const [state, formAction, pending] = useActionState(modificarCita, null);
 
   const hoy = new Date().toISOString().split("T")[0];
@@ -64,6 +80,29 @@ export default function EditarCitaForm({ idCita, fechaInicial, horaInicial, idTr
             defaultValue={horaInicial}
             className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
           />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-sans font-semibold text-gray-700 mb-1" htmlFor="id_odontologo">
+          Odontólogo asignado
+        </label>
+        <div className="relative">
+          <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select
+            id="id_odontologo"
+            name="id_odontologo"
+            required
+            defaultValue={idOdontologoInicial ?? ""}
+            className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark appearance-none bg-white"
+          >
+            <option value="">Selecciona un odontólogo</option>
+            {odontologos.map((o) => (
+              <option key={o.id_odontologo} value={o.id_odontologo}>
+                Dr(a). {o.primer_nombre} {o.primer_apellido}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

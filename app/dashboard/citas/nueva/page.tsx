@@ -21,6 +21,13 @@ export default async function NuevaCitaPage() {
     .select("id_tratamiento, nombre, precio")
     .order("nombre", { ascending: true });
 
+  // Traer los odontólogos activos para que el paciente o recepcionista elija
+  const { data: odontologos } = await supabase
+    .from("odontologos")
+    .select("id_odontologo, primer_nombre, primer_apellido")
+    .eq("estado", 1)
+    .order("primer_nombre", { ascending: true });
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
       <div className="w-full max-w-md">
@@ -41,10 +48,13 @@ export default async function NuevaCitaPage() {
             Agendar Nueva Cita
           </h1>
           <p className="text-center text-gray-500 font-sans text-sm mb-6">
-            Elige una fecha, hora y el tratamiento que necesitas.
+            Elige una fecha, hora, odontólogo y el tratamiento que necesitas.
           </p>
 
-          <CitaForm tratamientos={tratamientos ?? []} />
+          <CitaForm 
+            tratamientos={tratamientos ?? []} 
+            odontologos={odontologos ?? []} 
+          />
         </div>
       </div>
     </div>

@@ -25,9 +25,10 @@ export default async function EditarCitaPage({
     .maybeSingle();
   if (!perfil) redirect("/login");
 
+  // 1. Agregamos id_odontologo a la consulta de la cita
   const { data: cita } = await supabase
     .from("citas")
-    .select("id_cita, fecha_cita, motivo, estado, id_usuario, id_tratamiento")
+    .select("id_cita, fecha_cita, motivo, estado, id_usuario, id_tratamiento, id_odontologo")
     .eq("id_cita", id)
     .maybeSingle();
 
@@ -36,8 +37,6 @@ export default async function EditarCitaPage({
   const esStaff = ["admin", "doctor", "recepcionista"].includes(perfil.rol);
   const esDueno = cita.id_usuario === user.id;
 
-  // Un paciente solo puede editar SU propia cita, y solo si sigue
-  // pendiente. El staff puede editar cualquiera.
   if (!esStaff && (!esDueno || cita.estado !== 1)) {
     redirect("/dashboard");
   }
@@ -50,6 +49,13 @@ export default async function EditarCitaPage({
     .from("tratamiento")
     .select("id_tratamiento, nombre, precio")
     .order("nombre", { ascending: true });
+
+  // 2. Traemos la lista de odontólogos activos
+  const { data: odontologos } = await supabase
+    .from("odontologos")
+    .select("id_odontologo, primer_nombre, primer_apellido")
+    .eq("estado", 1)
+    .order("primer_nombre", { ascending: true });
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
@@ -71,7 +77,7 @@ export default async function EditarCitaPage({
             Modificar Cita
           </h1>
           <p className="text-center text-gray-500 font-sans text-sm mb-6">
-            Ajusta la fecha, hora o motivo de esta cita.
+            Ajusta la fecha, hora, motivo u odontólogo de esta cita.
           </p>
 
           <EditarCitaForm
@@ -79,10 +85,12 @@ export default async function EditarCitaPage({
             fechaInicial={fechaInicial}
             horaInicial={horaInicial}
             idTratamientoInicial={cita.id_tratamiento}
+            idOdontologoInicial={cita.id_odontologo} // <-- Pasamos el doctor inicial
             tratamientos={tratamientos ?? []}
+            odontologos={odontologos ?? []} // <-- Pasamos la lista de doctores
           />
         </div>
       </div>
     </div>
   );
-}
+} 
