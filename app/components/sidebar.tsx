@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signOut } from "../actions/auth";
-import { LayoutDashboard, Calendar, User, Users, Package, Receipt, Settings, HelpCircle, LogOut } from "lucide-react";
+import { LayoutDashboard, Calendar, User, Users, Package, Receipt, Settings, HelpCircle, LogOut, UserCircle } from "lucide-react";
 import Image from "next/image";
 
 const menuItems = [
@@ -52,6 +52,10 @@ return (
         </nav>
 
         <div className="px-3 pb-6 border-t border-gray-100 pt-3">
+        <Link href="/dashboard/perfil" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 font-sans font-medium hover:bg-gray-100 mb-1">
+            <UserCircle size={20} />
+            Mi Perfil
+        </Link>
         <Link href="/dashboard/configuracion" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 font-sans font-medium hover:bg-gray-100 mb-1">
             <Settings size={20} />
             Configuración

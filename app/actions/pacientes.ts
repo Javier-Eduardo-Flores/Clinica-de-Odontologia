@@ -266,6 +266,120 @@ export async function editarPaciente(
   return { success: true };
 }
 
+export async function actualizarMiPerfil(
+  prevState: PacienteState,
+  formData: FormData
+): Promise<PacienteState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("rol")
+    .eq("id_profile", user.id)
+    .maybeSingle();
+
+  if (!perfil) {
+    return { error: "No se encontró tu perfil." };
+  }
+
+  const primer_nombre = formData.get("primer_nombre") as string;
+  const segundo_nombre = (formData.get("segundo_nombre") as string) || "";
+  const primer_apellido = formData.get("primer_apellido") as string;
+  const segundo_apellido = (formData.get("segundo_apellido") as string) || "";
+  const telefono = formData.get("telefono") as string;
+  const fecha_nacimiento = formData.get("fecha_nacimiento") as string;
+  const direccion = (formData.get("direccion") as string) || "";
+  const genero = formData.get("genero") as string;
+
+  if (!primer_nombre || !primer_apellido || !telefono || !fecha_nacimiento) {
+    return { error: "Completa todos los campos obligatorios." };
+  }
+
+  const ePNombre = validateName(primer_nombre, true);
+  if (ePNombre) return { error: `Primer nombre: ${ePNombre}` };
+
+  const eSNombre = validateName(segundo_nombre, false);
+  if (eSNombre) return { error: `Segundo nombre: ${eSNombre}` };
+
+  const ePApellido = validateApellido(primer_apellido, true);
+  if (ePApellido) return { error: `Primer apellido: ${ePApellido}` };
+
+  const eSApellido = validateApellido(segundo_apellido, false);
+  if (eSApellido) return { error: `Segundo apellido: ${eSApellido}` };
+
+  const eTel = validateTelefono(telefono);
+  if (eTel) return { error: `Teléfono: ${eTel}` };
+
+  const eFecha = validateFechaNacimiento(fecha_nacimiento);
+  if (eFecha) return { error: eFecha };
+
+  if (direccion) {
+    const eDir = validateDireccion(direccion);
+    if (eDir) return { error: `Dirección: ${eDir}` };
+  }
+
+  const { error: errorProfile } = await supabase
+    .from("profiles")
+    .update({
+      nombre: primer_nombre,
+      apellido: primer_apellido,
+      telefono,
+    })
+    .eq("id_profile", user.id);
+
+  if (errorProfile)
+    return {
+      error: "Error al actualizar perfil: " + errorProfile.message,
+    };
+
+  if (perfil.rol === "paciente") {
+    const { error: errorPaciente } = await supabase
+      .from("pacientes")
+      .update({
+        primer_nombre,
+        segundo_nombre,
+        primer_apellido,
+        segundo_apellido,
+        telefono,
+        fecha_nacimiento,
+        direccion,
+        genero: genero ? Number(genero) : null,
+      })
+      .eq("id_paciente", user.id);
+
+    if (errorPaciente)
+      return {
+        error: "Error al actualizar paciente: " + errorPaciente.message,
+      };
+  } else if (perfil.rol === "doctor") {
+    const { error: errorOdontologo } = await supabase
+      .from("odontologos")
+      .update({
+        primer_nombre,
+        segundo_nombre,
+        primer_apellido,
+        segundo_apellido,
+        telefono,
+        fecha_nacimiento,
+        direccion,
+      })
+      .eq("id_odontologo", user.id);
+
+    if (errorOdontologo)
+      return {
+        error: "Error al actualizar odontólogo: " + errorOdontologo.message,
+      };
+  }
+
+  revalidatePath("/dashboard/perfil");
+  return { success: true };
+}
+
 export async function eliminarPaciente(id_paciente: string) {
   const supabase = await createClient();
 

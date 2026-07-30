@@ -502,13 +502,13 @@ async function DashboardPaciente({
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
           </Link>
 
-          <div className="flex items-center gap-2">
+          <Link href="/dashboard/perfil" className="flex items-center gap-2 cursor-pointer">
             <div className="text-right">
-              <p className="text-sm font-sans font-semibold text-gray-900">{nombreCompleto}</p>
+              <p className="text-sm font-sans font-semibold text-gray-900 hover:text-clinica-dark transition-colors">{nombreCompleto}</p>
               <p className="text-xs text-gray-400">Expediente #{numeroExpediente}</p>
             </div>
             <div className="w-9 h-9 rounded-full bg-gray-200" />
-          </div>
+          </Link>
 
           <form action={signOut}>
             <button

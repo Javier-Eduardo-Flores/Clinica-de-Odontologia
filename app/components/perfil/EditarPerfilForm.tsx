@@ -2,23 +2,22 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { editarPaciente, type PacienteState, type Paciente } from "@/app/actions/pacientes";
+import { actualizarMiPerfil, type PacienteState, type Paciente } from "@/app/actions/pacientes";
 import Input from "@/Components/UI/Input";
 import Select from "@/Components/UI/Select";
 import Textarea from "@/Components/UI/Textarea";
 import {
   validateName,
   validateApellido,
-  validateDNI,
   validateTelefono,
   validateFechaNacimiento,
   validateDireccion,
   validateGenero,
 } from "@/utils/validations";
 
-export default function EditarPacienteForm({ paciente }: { paciente: Paciente }) {
+export default function EditarPerfilForm({ paciente, rol }: { paciente: Paciente; rol: string }) {
   const [state, formAction, pending] = useActionState<PacienteState, FormData>(
-    editarPaciente,
+    actualizarMiPerfil,
     null
   );
 
@@ -26,21 +25,20 @@ export default function EditarPacienteForm({ paciente }: { paciente: Paciente })
   const [segundoNombre, setSegundoNombre] = useState(paciente.segundo_nombre ?? "");
   const [primerApellido, setPrimerApellido] = useState(paciente.primer_apellido);
   const [segundoApellido, setSegundoApellido] = useState(paciente.segundo_apellido ?? "");
-  const [dni, setDni] = useState(paciente.dni);
   const [telefono, setTelefono] = useState(paciente.telefono);
   const [fechaNacimiento, setFechaNacimiento] = useState(paciente.fecha_nacimiento.slice(0, 10));
   const [direccion, setDireccion] = useState(paciente.direccion ?? "");
   const [genero, setGenero] = useState(paciente.genero?.toString() ?? "");
-  const [estado, setEstado] = useState(paciente.estado.toString());
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
+  const esPaciente = rol === "paciente";
 
   useEffect(() => {
     if (state && "success" in state && state.success) {
-      router.push("/dashboard/pacientes/" + paciente.id_paciente);
+      router.push("/dashboard/perfil");
     }
-  }, [state, router, paciente.id_paciente]);
+  }, [state, router]);
 
   const validate = (field: string, value: string) => {
     let error: string | null = null;
@@ -56,9 +54,6 @@ export default function EditarPacienteForm({ paciente }: { paciente: Paciente })
         break;
       case "segundo_apellido":
         error = validateApellido(value, false);
-        break;
-      case "dni":
-        error = validateDNI(value);
         break;
       case "telefono":
         error = validateTelefono(value);
@@ -95,9 +90,6 @@ export default function EditarPacienteForm({ paciente }: { paciente: Paciente })
       case "segundo_apellido":
         setSegundoApellido(value);
         break;
-      case "dni":
-        setDni(value);
-        break;
       case "telefono":
         setTelefono(value);
         break;
@@ -110,16 +102,11 @@ export default function EditarPacienteForm({ paciente }: { paciente: Paciente })
       case "genero":
         setGenero(value);
         break;
-      case "estado":
-        setEstado(value);
-        break;
     }
   };
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
-      <input type="hidden" name="id_paciente" value={paciente.id_paciente} />
-
       {state && "error" in state && (
         <p className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg">
           {state.error}
@@ -177,17 +164,12 @@ export default function EditarPacienteForm({ paciente }: { paciente: Paciente })
       </div>
 
       <div className="flex gap-3">
-        <Input
-          type="text"
-          label="DNI"
-          name="dni"
-          placeholder="0801199712301"
-          required={true}
-          value={dni}
-          error={errors.dni}
-          onChange={(e) => handleChange("dni", e.target.value)}
-          onBlur={(e) => validate("dni", e.target.value)}
-        />
+        <div className="flex-1">
+          <label className="block text-sm font-inter font-semibold text-clinica-accent">DNI</label>
+          <p className="w-full border border-gray-200 rounded-lg py-2 px-2 bg-gray-50 text-gray-500 text-sm">
+            {paciente.dni}
+          </p>
+        </div>
         <Input
           type="text"
           label="Teléfono"
@@ -225,33 +207,30 @@ export default function EditarPacienteForm({ paciente }: { paciente: Paciente })
       />
 
       <div className="flex gap-3">
-        <Select
-          label="Género"
-          name="genero"
-          required={true}
-          placeholder="Seleccionar género"
-          options={[
-            { value: "1", label: "Masculino" },
-            { value: "2", label: "Femenino" },
-          ]}
-          value={genero}
-          error={errors.genero}
-          onChange={(e) => {
-            handleChange("genero", e.target.value);
-            validate("genero", e.target.value);
-          }}
-        />
-        <Select
-          label="Estado"
-          name="estado"
-          required={true}
-          options={[
-            { value: "1", label: "Activo" },
-            { value: "0", label: "Inactivo" },
-          ]}
-          value={estado}
-          onChange={(e) => handleChange("estado", e.target.value)}
-        />
+        {esPaciente && (
+          <Select
+            label="Género"
+            name="genero"
+            required={true}
+            placeholder="Seleccionar género"
+            options={[
+              { value: "1", label: "Masculino" },
+              { value: "2", label: "Femenino" },
+            ]}
+            value={genero}
+            error={errors.genero}
+            onChange={(e) => {
+              handleChange("genero", e.target.value);
+              validate("genero", e.target.value);
+            }}
+          />
+        )}
+        <div className="flex-1">
+          <label className="block text-sm font-inter font-semibold text-clinica-accent">Correo</label>
+          <p className="w-full border border-gray-200 rounded-lg py-2 px-2 bg-gray-50 text-gray-500 text-sm">
+            {paciente.correo}
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-3 mt-2">
