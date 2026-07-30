@@ -16,17 +16,34 @@ export default async function NuevaCitaPage() {
     redirect("/login");
   }
 
+  
   const { data: tratamientos } = await supabase
     .from("tratamiento")
-    .select("id_tratamiento, nombre, precio")
+    .select("id_tratamiento, nombre, precio, id_especialidad")
     .order("nombre", { ascending: true });
 
-  // Traer los odontólogos activos para que el paciente o recepcionista elija
-  const { data: odontologos } = await supabase
+  
+  const { data: odontologosData } = await supabase
     .from("odontologos")
-    .select("id_odontologo, primer_nombre, primer_apellido")
+    .select(`
+      id_odontologo, 
+      primer_nombre, 
+      primer_apellido,
+      odontologosxespecialidad (
+        especialidad ( id_especialidad, nombre )
+      )
+    `)
     .eq("estado", 1)
     .order("primer_nombre", { ascending: true });
+
+  
+  const odontologosFormateados = odontologosData?.map(doc => ({
+    id_odontologo: doc.id_odontologo,
+    primer_nombre: doc.primer_nombre,
+    primer_apellido: doc.primer_apellido,
+    
+    especialidades: doc.odontologosxespecialidad.map((oe: any) => oe.especialidad)
+  })) || [];
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
@@ -53,10 +70,10 @@ export default async function NuevaCitaPage() {
 
           <CitaForm 
             tratamientos={tratamientos ?? []} 
-            odontologos={odontologos ?? []} 
+            odontologos={odontologosFormateados} 
           />
         </div>
       </div>
     </div>
   );
-}
+} 
