@@ -46,11 +46,14 @@ export default async function PacienteDetallePage({
   const puedeEditar = esAdmin || esRecepcionista;
   const puedeEliminar = esAdmin;
 
-  const fechaNacimiento = new Date(paciente.fecha_nacimiento).toLocaleDateString("es-HN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const fechaNacimiento = (() => {
+    const [y, m, d] = paciente.fecha_nacimiento.slice(0, 10).split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("es-HN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  })();
 
   const fechaRegistro = new Date(paciente.fecha_registro).toLocaleDateString("es-HN", {
     year: "numeric",

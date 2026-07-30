@@ -167,7 +167,7 @@ export default async function CitaDetallePage({
                 <span className="flex items-center gap-2"><Phone size={14} /> {paciente.telefono}</span>
                 <span className="flex items-center gap-2">
                   <Calendar size={14} />
-                  {new Date(paciente.fecha_nacimiento).toLocaleDateString("es-HN", { day: "2-digit", month: "short", year: "numeric" })}
+                  {(() => { const [y, m, d] = paciente.fecha_nacimiento.slice(0, 10).split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("es-HN", { day: "2-digit", month: "short", year: "numeric" }); })()}
                 </span>
               </div>
             </div>
