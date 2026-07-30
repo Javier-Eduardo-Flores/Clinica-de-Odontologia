@@ -58,7 +58,10 @@ export default function LoginPage() {
                     <label className="text-sm font-inter font-semibold text-clinica-accent">
                         Contraseña
                     </label>
-                    <Link href="/forgot-password" className="text-sm font-inter font-semibold text-clinica-accent opacity-75 hover:underline">
+                    <Link 
+                         href="/forgot-password" 
+                         className="text-sm font-sans text-clinica-dark hover:underline"
+                        >
                         ¿Olvidaste tu contraseña?
                     </Link>
                 </div>
