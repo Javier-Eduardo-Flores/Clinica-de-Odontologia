@@ -2,6 +2,7 @@ import Link from "next/link";
 import { signOut } from "../actions/auth";
 import { LayoutDashboard, Calendar, User, Users, Package, Receipt, Settings, HelpCircle, LogOut, UserCircle } from "lucide-react";
 import Image from "next/image";
+import { createClient } from "@/utils/supabase/server";
 
 const menuItems = [
     { label: "Panel de Control", icon: LayoutDashboard, href: "/dashboard" },
@@ -12,7 +13,27 @@ const menuItems = [
     { label: "Facturación", icon: Receipt, href: "/dashboard/facturacion" },
 ];
 
-export default function Sidebar({ activePath }: { activePath: string }) {
+const roleMenu: Record<string, string[]> = {
+    admin: ["Panel de Control", "Citas", "Pacientes", "Personal", "Inventario", "Facturación"],
+    recepcionista: ["Panel de Control", "Citas", "Pacientes", "Facturación", "Inventario"],
+    doctor: ["Panel de Control", "Citas", "Pacientes", "Personal"],
+    paciente: ["Panel de Control", "Citas"],
+};
+
+export default async function Sidebar({ activePath }: { activePath: string }) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    let rol = "paciente";
+    if (user) {
+        const { data: perfil } = await supabase
+            .from("profiles")
+            .select("rol")
+            .eq("id_profile", user.id)
+            .maybeSingle();
+        if (perfil) rol = perfil.rol;
+    }
+    const visibleLabels = roleMenu[rol] ?? [];
+
 return (
     <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col sticky top-0">
         <div className="p-6 flex items-center gap-3">
@@ -31,7 +52,7 @@ return (
         </div>
 
         <nav className="flex-1 px-3">
-        {menuItems.map((item) => {
+        {menuItems.filter((item) => visibleLabels.includes(item.label)).map((item) => {
             const Icon = item.icon;
             const isActive = activePath === item.href;
             return (
