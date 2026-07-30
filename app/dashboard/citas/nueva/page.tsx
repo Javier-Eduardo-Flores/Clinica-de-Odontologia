@@ -16,10 +16,34 @@ export default async function NuevaCitaPage() {
     redirect("/login");
   }
 
+  
   const { data: tratamientos } = await supabase
     .from("tratamiento")
-    .select("id_tratamiento, nombre, precio")
+    .select("id_tratamiento, nombre, precio, id_especialidad")
     .order("nombre", { ascending: true });
+
+  
+  const { data: odontologosData } = await supabase
+    .from("odontologos")
+    .select(`
+      id_odontologo, 
+      primer_nombre, 
+      primer_apellido,
+      odontologosxespecialidad (
+        especialidad ( id_especialidad, nombre )
+      )
+    `)
+    .eq("estado", 1)
+    .order("primer_nombre", { ascending: true });
+
+  
+  const odontologosFormateados = odontologosData?.map(doc => ({
+    id_odontologo: doc.id_odontologo,
+    primer_nombre: doc.primer_nombre,
+    primer_apellido: doc.primer_apellido,
+    
+    especialidades: doc.odontologosxespecialidad.map((oe: any) => oe.especialidad)
+  })) || [];
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-5">
@@ -41,12 +65,15 @@ export default async function NuevaCitaPage() {
             Agendar Nueva Cita
           </h1>
           <p className="text-center text-gray-500 font-sans text-sm mb-6">
-            Elige una fecha, hora y el tratamiento que necesitas.
+            Elige una fecha, hora, odontólogo y el tratamiento que necesitas.
           </p>
 
-          <CitaForm tratamientos={tratamientos ?? []} />
+          <CitaForm 
+            tratamientos={tratamientos ?? []} 
+            odontologos={odontologosFormateados} 
+          />
         </div>
       </div>
     </div>
   );
-}
+} 

@@ -9,7 +9,7 @@ export type CitaState = { error: string } | { success: boolean } | null;
 
 /**
  * Crea una nueva cita para el paciente autenticado.
- * Combina fecha + hora en un solo timestamp y valida que sea futura.
+ * Valida disponibilidad del doctor (±30 min) y que el usuario no se duplique.
  */
 export async function agendarCita(prevState: CitaState, formData: FormData): Promise<CitaState> {
   const supabase = await createClient();
@@ -22,12 +22,13 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
     redirect("/login");
   }
 
-  const fecha = formData.get("fecha") as string; // "2026-08-15"
-  const hora = formData.get("hora") as string;   // "10:30"
+  const fecha = formData.get("fecha") as string;
+  const hora = formData.get("hora") as string;
   const id_tratamiento = formData.get("id_tratamiento") as string;
+  const id_odontologo = formData.get("id_odontologo") as string;
 
-  if (!fecha || !hora || !id_tratamiento) {
-    return { error: "Completa todos los campos." };
+  if (!fecha || !hora || !id_tratamiento || !id_odontologo) {
+    return { error: "Completa todos los campos, incluyendo el odontólogo." };
   }
 
   const fechaCita = new Date(`${fecha}T${hora}:00`);
@@ -40,9 +41,36 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
     return { error: "Elige una fecha y hora futura." };
   }
 
-  // El motivo se llena automáticamente con el nombre del tratamiento
-  // elegido, así todo el resto del código que muestra `motivo` sigue
-  // funcionando sin cambios.
+  const fechaIso = fechaCita.toISOString();
+
+  // 1. VALIDACIÓN: El usuario no puede tener otra cita a la misma hora exacta (Estados 1: Pendiente, 2: Confirmada)
+  const { data: citasUsuario } = await supabase
+    .from("citas")
+    .select("id_cita")
+    .eq("id_usuario", user.id)
+    .in("estado", [1, 2])
+    .eq("fecha_cita", fechaIso);
+
+  if (citasUsuario && citasUsuario.length > 0) {
+    return { error: "Ya tienes una cita agendada para esta misma fecha y hora." };
+  }
+
+  // 2. VALIDACIÓN: El doctor no puede tener citas con menos de 30 minutos de diferencia (±30 min)
+  const treintaMinutosAntes = new Date(fechaCita.getTime() - 30 * 60000).toISOString();
+  const treintaMinutosDespues = new Date(fechaCita.getTime() + 30 * 60000).toISOString();
+
+  const { data: citasDoctor } = await supabase
+    .from("citas")
+    .select("id_cita")
+    .eq("id_odontologo", id_odontologo)
+    .in("estado", [1, 2])
+    .gte("fecha_cita", treintaMinutosAntes)
+    .lte("fecha_cita", treintaMinutosDespues);
+
+  if (citasDoctor && citasDoctor.length > 0) {
+    return { error: "El odontólogo ya tiene una cita programada en ese horario (debe haber al menos 30 min de diferencia)." };
+  }
+
   const { data: tratamiento } = await supabase
     .from("tratamiento")
     .select("nombre")
@@ -55,9 +83,10 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
 
   const { error } = await supabase.from("citas").insert({
     id_usuario: user.id,
-    fecha_cita: fechaCita.toISOString(),
+    fecha_cita: fechaIso,
     motivo: tratamiento.nombre,
     id_tratamiento,
+    id_odontologo,
     estado: 1, // Pendiente
   });
 
@@ -70,9 +99,7 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
 }
 
 /**
- * Confirma una cita PENDIENTE (usado por doctor/recepcionista/admin
- * desde su dashboard). No valida dueño, pero la política RLS de
- * UPDATE en `citas` solo debe permitir esto a personal clínico.
+ * Confirma una cita PENDIENTE (usado por doctor/recepcionista/admin).
  */
 export async function confirmarCitaStaff(formData: FormData) {
   const supabase = await createClient();
@@ -99,10 +126,7 @@ export async function confirmarCitaStaff(formData: FormData) {
 }
 
 /**
- * Modifica fecha, hora y motivo de una cita existente.
- * El paciente solo puede editar su propia cita mientras esté
- * PENDIENTE (lo aplica la política RLS). El personal clínico puede
- * editar cualquier cita.
+ * Modifica fecha, hora, tratamiento y odontólogo de una cita existente.
  */
 export async function modificarCita(prevState: CitaState, formData: FormData): Promise<CitaState> {
   const supabase = await createClient();
@@ -116,8 +140,9 @@ export async function modificarCita(prevState: CitaState, formData: FormData): P
   const fecha = formData.get("fecha") as string;
   const hora = formData.get("hora") as string;
   const id_tratamiento = formData.get("id_tratamiento") as string;
+  const id_odontologo = formData.get("id_odontologo") as string;
 
-  if (!id_cita || !fecha || !hora || !id_tratamiento) {
+  if (!id_cita || !fecha || !hora || !id_tratamiento || !id_odontologo) {
     return { error: "Completa todos los campos." };
   }
 
@@ -129,6 +154,38 @@ export async function modificarCita(prevState: CitaState, formData: FormData): P
 
   if (fechaCita.getTime() <= Date.now()) {
     return { error: "Elige una fecha y hora futura." };
+  }
+
+  const fechaIso = fechaCita.toISOString();
+
+  // 1. VALIDACIÓN USUARIO (excluyendo la cita actual que estamos editando)
+  const { data: citasUsuario } = await supabase
+    .from("citas")
+    .select("id_cita")
+    .eq("id_usuario", user.id)
+    .in("estado", [1, 2])
+    .eq("fecha_cita", fechaIso)
+    .neq("id_cita", id_cita);
+
+  if (citasUsuario && citasUsuario.length > 0) {
+    return { error: "Ya tienes otra cita agendada para esta misma fecha y hora." };
+  }
+
+  // 2. VALIDACIÓN DOCTOR (±30 min, excluyendo la cita actual)
+  const treintaMinutosAntes = new Date(fechaCita.getTime() - 30 * 60000).toISOString();
+  const treintaMinutosDespues = new Date(fechaCita.getTime() + 30 * 60000).toISOString();
+
+  const { data: citasDoctor } = await supabase
+    .from("citas")
+    .select("id_cita")
+    .eq("id_odontologo", id_odontologo)
+    .in("estado", [1, 2])
+    .gte("fecha_cita", treintaMinutosAntes)
+    .lte("fecha_cita", treintaMinutosDespues)
+    .neq("id_cita", id_cita);
+
+  if (citasDoctor && citasDoctor.length > 0) {
+    return { error: "El odontólogo ya tiene una cita en ese horario (debe haber al menos 30 min de diferencia)." };
   }
 
   const { data: tratamiento } = await supabase
@@ -144,9 +201,10 @@ export async function modificarCita(prevState: CitaState, formData: FormData): P
   const { error } = await supabase
     .from("citas")
     .update({
-      fecha_cita: fechaCita.toISOString(),
+      fecha_cita: fechaIso,
       motivo: tratamiento.nombre,
       id_tratamiento,
+      id_odontologo,
     })
     .eq("id_cita", id_cita);
 
@@ -189,9 +247,7 @@ export async function cancelarCitaStaff(formData: FormData) {
 export type CompletarCitaState = { error: string } | null;
 
 /**
- * Marca una cita como completada Y crea la consulta asociada con el
- * diagnóstico. Solo el odontólogo que la atendió puede hacer esto
- * (id_odontologo = su propio uid, exigido también por RLS).
+ * Marca una cita como completada Y crea la consulta asociada con el diagnóstico.
  */
 export async function completarCitaConConsulta(
   prevState: CompletarCitaState,
@@ -212,8 +268,6 @@ export async function completarCitaConConsulta(
     return { error: "El diagnóstico es obligatorio." };
   }
 
-  // Necesitamos el paciente y el tratamiento elegido al agendar,
-  // para poder generar la factura automáticamente.
   const { data: cita, error: errorCitaInfo } = await supabase
     .from("citas")
     .select("id_usuario, id_tratamiento")
@@ -239,8 +293,6 @@ export async function completarCitaConConsulta(
     return { error: "No se pudo crear la consulta: " + (errorConsulta?.message ?? "") };
   }
 
-  // Si la cita tenía un tratamiento asociado, generamos el detalle
-  // de la consulta Y la factura automáticamente.
   if (cita.id_tratamiento) {
     await supabase.from("detalle_consultas").insert({
       id_consulta: consulta.id_consulta,
@@ -256,7 +308,7 @@ export async function completarCitaConConsulta(
 
     if (tratamiento) {
       const subtotal = Number(tratamiento.precio);
-      const impuestos = Number((subtotal * 0.15).toFixed(2)); // ISV 15% — AJUSTA si tu clínica usa otra tasa
+      const impuestos = Number((subtotal * 0.15).toFixed(2));
       const total = Number((subtotal + impuestos).toFixed(2));
 
       const { data: factura } = await supabase
@@ -292,4 +344,4 @@ export async function completarCitaConConsulta(
 
   revalidatePath("/dashboard/citas");
   redirect("/dashboard/citas");
-}
+} 

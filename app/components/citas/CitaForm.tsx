@@ -1,20 +1,53 @@
 // app/components/citas/CitaForm.tsx
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { agendarCita } from "@/app/actions/citas";
-import { Calendar, Clock, Stethoscope } from "lucide-react";
+import { Calendar, Clock, Stethoscope, UserCircle } from "lucide-react";
 
 interface Tratamiento {
   id_tratamiento: string;
   nombre: string;
   precio: number;
+  id_especialidad: string | null;
 }
 
-export default function CitaForm({ tratamientos }: { tratamientos: Tratamiento[] }) {
+interface Especialidad {
+  id_especialidad: string;
+  nombre: string;
+}
+
+interface Odontologo {
+  id_odontologo: string;
+  primer_nombre: string;
+  primer_apellido: string;
+  especialidades: Especialidad[];
+}
+
+interface Props {
+  tratamientos: Tratamiento[];
+  odontologos: Odontologo[];
+}
+
+export default function CitaForm({ tratamientos, odontologos }: Props) {
   const [state, formAction, pending] = useActionState(agendarCita, null);
+  
+  // Ahora el estado guarda el tratamiento seleccionado primero
+  const [tratamientoSeleccionado, setTratamientoSeleccionado] = useState<string>("");
 
   const hoy = new Date().toISOString().split("T")[0];
+
+  // Buscamos el tratamiento actual
+  const tratamientoActual = tratamientos.find(t => t.id_tratamiento === tratamientoSeleccionado);
+
+  // Filtramos los odontólogos según la especialidad del tratamiento elegido
+  const odontologosFiltrados = tratamientoActual
+    ? tratamientoActual.id_especialidad === null
+      ? odontologos // Si es un tratamiento general (sin especialidad), lo puede hacer cualquier doctor
+      : odontologos.filter(doc => 
+          doc.especialidades.some(e => e.id_especialidad === tratamientoActual.id_especialidad)
+        )
+    : []; // Si no ha elegido tratamiento, no muestra doctores
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -55,6 +88,7 @@ export default function CitaForm({ tratamientos }: { tratamientos: Tratamiento[]
         </div>
       </div>
 
+      {/* 1. PRIMERO: Motivo de la cita (Tratamiento) */}
       <div>
         <label className="block text-sm font-sans font-semibold text-gray-700 mb-1" htmlFor="id_tratamiento">
           Motivo de la cita
@@ -65,9 +99,11 @@ export default function CitaForm({ tratamientos }: { tratamientos: Tratamiento[]
             id="id_tratamiento"
             name="id_tratamiento"
             required
+            value={tratamientoSeleccionado}
+            onChange={(e) => setTratamientoSeleccionado(e.target.value)}
             className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark appearance-none bg-white"
           >
-            <option value="">Selecciona un tratamiento</option>
+            <option value="" disabled>Selecciona un tratamiento</option>
             {tratamientos.map((t) => (
               <option key={t.id_tratamiento} value={t.id_tratamiento}>
                 {t.nombre} — L. {Number(t.precio).toLocaleString("es-HN")}
@@ -77,10 +113,43 @@ export default function CitaForm({ tratamientos }: { tratamientos: Tratamiento[]
         </div>
       </div>
 
+      {/* 2. SEGUNDO: Odontólogo asignado (Se despliega filtrado) */}
+      <div>
+        <label className="block text-sm font-sans font-semibold text-gray-700 mb-1" htmlFor="id_odontologo">
+          Odontólogo asignado
+        </label>
+        <div className="relative">
+          <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select
+            id="id_odontologo"
+            name="id_odontologo"
+            required
+            defaultValue=""
+            disabled={!tratamientoSeleccionado} 
+            className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark appearance-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+          >
+            <option value="" disabled>
+              {!tratamientoSeleccionado 
+                ? "Primero selecciona un tratamiento" 
+                : "Selecciona un odontólogo"}
+            </option>
+            {odontologosFiltrados.map((o) => (
+              <option key={o.id_odontologo} value={o.id_odontologo}>
+                Dr(a). {o.primer_nombre} {o.primer_apellido}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {tratamientoSeleccionado && odontologosFiltrados.length === 0 && (
+          <p className="text-orange-500 text-xs mt-1">No hay odontólogos registrados con esta especialidad todavía.</p>
+        )}
+      </div>
+
       <button
         type="submit"
-        disabled={pending}
-        className="font-sans font-bold bg-clinica-dark text-white py-3 rounded-lg disabled:opacity-50 hover:bg-clinica-medium transition-colors"
+        disabled={pending || !tratamientoSeleccionado || odontologosFiltrados.length === 0}
+        className="font-sans font-bold bg-clinica-dark text-white py-3 rounded-lg disabled:opacity-50 hover:bg-clinica-medium transition-colors mt-2"
       >
         {pending ? "Agendando..." : "Confirmar Cita"}
       </button>

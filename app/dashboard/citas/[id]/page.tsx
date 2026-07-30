@@ -48,13 +48,13 @@ export default async function CitaDetallePage({
     redirect("/dashboard");
   }
 
-  // Usamos el nombre exacto de la llave foránea (fk_id_usuario) para
-  // que no haya ambigüedad al traer los datos del paciente.
+  // Agregamos odontologos a la consulta para traer el nombre del doctor asignado
   const { data: cita } = await supabase
     .from("citas")
     .select(
-      `id_cita, fecha_cita, motivo, estado,
-       pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento )`
+      `id_cita, fecha_cita, motivo, estado, id_odontologo,
+       pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento ),
+       odontologos ( primer_nombre, primer_apellido )`
     )
     .eq("id_cita", id)
     .maybeSingle();
@@ -62,6 +62,8 @@ export default async function CitaDetallePage({
   if (!cita) notFound();
 
   const paciente = Array.isArray(cita.pacientes) ? cita.pacientes[0] : cita.pacientes;
+  const doctor = Array.isArray(cita.odontologos) ? cita.odontologos[0] : cita.odontologos;
+  
   const esPendienteOConfirmada = cita.estado === 1 || cita.estado === 2;
 
   let medicamentosIniciales: string | null = null;
@@ -97,8 +99,6 @@ export default async function CitaDetallePage({
     catalogoEstados = estadosData ?? [];
   }
 
-  // El doctor puede completar la cita libremente, sin obligar a que
-  // haya tocado antes el expediente o el odontograma ese mismo día.
   const puedeCompletar = perfil.rol === "doctor" && esPendienteOConfirmada;
 
   return (
@@ -128,6 +128,7 @@ export default async function CitaDetallePage({
           <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
             <h2 className="text-sm font-sans font-bold text-gray-400 uppercase mb-3">Motivo de la Cita</h2>
             <p className="font-sans text-gray-900 mb-4">{cita.motivo}</p>
+            
             <div className="flex items-center gap-6 text-sm text-gray-600 font-sans">
               <span className="flex items-center gap-2">
                 <Calendar size={15} />
@@ -138,6 +139,14 @@ export default async function CitaDetallePage({
                 {new Date(cita.fecha_cita).toLocaleTimeString("es-HN", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
+
+            {/* SECCIÓN AGREGADA: Muestra al doctor asignado */}
+            {doctor && (
+              <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 text-sm text-gray-600 font-sans">
+                <span className="font-bold text-gray-900">Odontólogo asignado:</span>
+                <span>Dr(a). {doctor.primer_nombre} {doctor.primer_apellido}</span>
+              </div>
+            )}
           </div>
 
           {/* Datos del paciente */}
