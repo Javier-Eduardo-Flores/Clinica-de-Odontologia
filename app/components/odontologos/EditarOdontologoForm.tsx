@@ -2,58 +2,49 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { crearPaciente, type PacienteState } from "@/app/actions/pacientes";
+import { editarOdontologo, type OdontologoState, type Odontologo } from "@/app/actions/odontologos";
 import Input from "@/Components/UI/Input";
 import Select from "@/Components/UI/Select";
 import Textarea from "@/Components/UI/Textarea";
 import {
-  validateEmail,
-  validatePassword,
   validateName,
   validateApellido,
   validateDNI,
   validateTelefono,
   validateFechaNacimiento,
   validateDireccion,
-  validateGenero,
+  validateSueldo,
 } from "@/utils/validations";
 
-export default function PacienteForm() {
-  const [state, formAction, pending] = useActionState<PacienteState, FormData>(
-    crearPaciente,
+export default function EditarOdontologoForm({ odontologo }: { odontologo: Odontologo }) {
+  const [state, formAction, pending] = useActionState<OdontologoState, FormData>(
+    editarOdontologo,
     null
   );
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [primerNombre, setPrimerNombre] = useState("");
-  const [segundoNombre, setSegundoNombre] = useState("");
-  const [primerApellido, setPrimerApellido] = useState("");
-  const [segundoApellido, setSegundoApellido] = useState("");
-  const [dni, setDni] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [fechaNacimiento, setFechaNacimiento] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [genero, setGenero] = useState("");
+  const [primerNombre, setPrimerNombre] = useState(odontologo.primer_nombre);
+  const [segundoNombre, setSegundoNombre] = useState(odontologo.segundo_nombre ?? "");
+  const [primerApellido, setPrimerApellido] = useState(odontologo.primer_apellido);
+  const [segundoApellido, setSegundoApellido] = useState(odontologo.segundo_apellido ?? "");
+  const [dni, setDni] = useState(odontologo.dni);
+  const [telefono, setTelefono] = useState(odontologo.telefono);
+  const [fechaNacimiento, setFechaNacimiento] = useState(odontologo.fecha_nacimiento.slice(0, 10));
+  const [direccion, setDireccion] = useState(odontologo.direccion ?? "");
+  const [sueldo, setSueldo] = useState(odontologo.sueldo.toString());
+  const [estado, setEstado] = useState(odontologo.estado.toString());
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
 
   useEffect(() => {
     if (state && "success" in state && state.success) {
-      router.push("/dashboard/pacientes");
+      router.push("/dashboard/odontologos/" + odontologo.id_odontologo);
     }
-  }, [state, router]);
+  }, [state, router, odontologo.id_odontologo]);
 
   const validate = (field: string, value: string) => {
     let error: string | null = null;
     switch (field) {
-      case "email":
-        error = validateEmail(value);
-        break;
-      case "password":
-        error = validatePassword(value);
-        break;
       case "primer_nombre":
         error = validateName(value, true);
         break;
@@ -78,8 +69,8 @@ export default function PacienteForm() {
       case "direccion":
         error = validateDireccion(value);
         break;
-      case "genero":
-        error = validateGenero(value);
+      case "sueldo":
+        error = validateSueldo(value);
         break;
     }
     setErrors((prev) => {
@@ -92,12 +83,6 @@ export default function PacienteForm() {
 
   const handleChange = (field: string, value: string) => {
     switch (field) {
-      case "email":
-        setEmail(value);
-        break;
-      case "password":
-        setPassword(value);
-        break;
       case "primer_nombre":
         setPrimerNombre(value);
         break;
@@ -122,44 +107,24 @@ export default function PacienteForm() {
       case "direccion":
         setDireccion(value);
         break;
-      case "genero":
-        setGenero(value);
+      case "sueldo":
+        setSueldo(value);
+        break;
+      case "estado":
+        setEstado(value);
         break;
     }
   };
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
+      <input type="hidden" name="id_odontologo" value={odontologo.id_odontologo} />
+
       {state && "error" in state && (
         <p className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg">
           {state.error}
         </p>
       )}
-
-      <Input
-        type="email"
-        label="Correo Electrónico"
-        name="email"
-        placeholder="nombre@ejemplo.com"
-        required={true}
-        value={email}
-        error={errors.email}
-        onChange={(e) => handleChange("email", e.target.value)}
-        onBlur={(e) => validate("email", e.target.value)}
-      />
-
-      <Input
-        type="password"
-        label="Contraseña"
-        name="password"
-        placeholder="••••••••"
-        required={true}
-        togglePassword
-        value={password}
-        error={errors.password}
-        onChange={(e) => handleChange("password", e.target.value)}
-        onBlur={(e) => validate("password", e.target.value)}
-      />
 
       <div className="flex gap-3">
         <Input
@@ -240,7 +205,7 @@ export default function PacienteForm() {
         type="date"
         label="Fecha de Nacimiento"
         name="fecha_nacimiento"
-        placeholder="12/03/1990"
+        placeholder=""
         required={true}
         value={fechaNacimiento}
         error={errors.fecha_nacimiento}
@@ -259,30 +224,48 @@ export default function PacienteForm() {
         onBlur={(e) => validate("direccion", e.target.value)}
       />
 
-      <Select
-        label="Género"
-        name="genero"
-        required={true}
-        placeholder="Seleccionar género"
-        options={[
-          { value: "1", label: "Masculino" },
-          { value: "2", label: "Femenino" },
-        ]}
-        value={genero}
-        error={errors.genero}
-        onChange={(e) => {
-          handleChange("genero", e.target.value);
-          validate("genero", e.target.value);
-        }}
-      />
+      <div className="flex gap-3">
+        <Input
+          type="number"
+          step="0.01"
+          label="Sueldo"
+          name="sueldo"
+          placeholder="15000.00"
+          required={true}
+          value={sueldo}
+          error={errors.sueldo}
+          onChange={(e) => handleChange("sueldo", e.target.value)}
+          onBlur={(e) => validate("sueldo", e.target.value)}
+        />
+        <Select
+          label="Estado"
+          name="estado"
+          required={true}
+          options={[
+            { value: "1", label: "Activo" },
+            { value: "0", label: "Inactivo" },
+          ]}
+          value={estado}
+          onChange={(e) => handleChange("estado", e.target.value)}
+        />
+      </div>
 
-      <button
-        className="font-sans font-bold bg-clinica-dark text-white p-3 rounded-lg disabled:opacity-50 hover:bg-clinica-medium transition-colors cursor-pointer"
-        disabled={pending}
-        type="submit"
-      >
-        {pending ? "Creando paciente..." : "Crear Paciente"}
-      </button>
+      <div className="flex gap-3 mt-2">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex-1 border border-gray-300 rounded-lg py-2 font-sans font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+        >
+          Cancelar
+        </button>
+        <button
+          className="flex-1 bg-clinica-dark text-white font-sans font-semibold p-3 rounded-lg disabled:opacity-50 hover:bg-clinica-medium transition-colors cursor-pointer"
+          disabled={pending}
+          type="submit"
+        >
+          {pending ? "Guardando..." : "Guardar Cambios"}
+        </button>
+      </div>
     </form>
   );
 }

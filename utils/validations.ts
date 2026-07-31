@@ -77,3 +77,10 @@ export function validateGenero(value: string): string | null {
   if (!value) return 'Seleccione un género';
   return null;
 }
+
+export function validateSueldo(value: string): string | null {
+  if (!value) return 'El sueldo es obligatorio';
+  const num = Number(value);
+  if (isNaN(num) || num <= 0) return 'Ingrese un sueldo válido mayor a 0';
+  return null;
+}
