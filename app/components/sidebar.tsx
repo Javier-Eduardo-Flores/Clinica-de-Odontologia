@@ -1,37 +1,31 @@
 import Link from "next/link";
 import { signOut } from "../actions/auth";
-import { LayoutDashboard, Calendar, User, Users, Package, Receipt, Settings, HelpCircle, LogOut, UserCircle } from "lucide-react";
+import { LayoutDashboard, Calendar, User, Users, Package, Receipt, Settings, HelpCircle, LogOut, UserCircle, Stethoscope, BookOpen, Clock } from "lucide-react";
 import Image from "next/image";
-import { createClient } from "@/utils/supabase/server";
+import { getCurrentUser, getUserRole } from "@/utils/supabase/helpers";
 
 const menuItems = [
     { label: "Panel de Control", icon: LayoutDashboard, href: "/dashboard" },
     { label: "Citas", icon: Calendar, href: "/dashboard/citas" },
     { label: "Pacientes", icon: User, href: "/dashboard/pacientes" },
+    { label: "Odontólogos", icon: Stethoscope, href: "/dashboard/odontologos" },
+    { label: "Especialidades", icon: BookOpen, href: "/dashboard/especialidades" },
+    { label: "Jornadas", icon: Clock, href: "/dashboard/jornadas" },
     { label: "Personal", icon: Users, href: "/dashboard/personal" },
     { label: "Inventario", icon: Package, href: "/dashboard/inventario" },
     { label: "Facturación", icon: Receipt, href: "/dashboard/facturacion" },
 ];
 
 const roleMenu: Record<string, string[]> = {
-    admin: ["Panel de Control", "Citas", "Pacientes", "Personal", "Inventario", "Facturación"],
-    recepcionista: ["Panel de Control", "Citas", "Pacientes", "Facturación", "Inventario"],
+    admin: ["Panel de Control", "Citas", "Pacientes", "Odontólogos", "Especialidades", "Jornadas", "Personal", "Inventario", "Facturación"],
+    recepcionista: ["Panel de Control", "Citas", "Pacientes", "Odontólogos", "Facturación", "Inventario"],
     doctor: ["Panel de Control", "Citas", "Pacientes", "Personal"],
     paciente: ["Panel de Control", "Citas"],
 };
 
 export default async function Sidebar({ activePath }: { activePath: string }) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    let rol = "paciente";
-    if (user) {
-        const { data: perfil } = await supabase
-            .from("profiles")
-            .select("rol")
-            .eq("id_profile", user.id)
-            .maybeSingle();
-        if (perfil) rol = perfil.rol;
-    }
+    const user = await getCurrentUser();
+    const rol = (await getUserRole()) ?? "paciente";
     const visibleLabels = roleMenu[rol] ?? [];
 
 return (

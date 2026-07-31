@@ -1,8 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Edit, Mail, Phone, MapPin, Calendar, User, Briefcase, DollarSign } from "lucide-react";
+import { Edit, Mail, Phone, MapPin, Calendar, User, DollarSign, Stethoscope, Clock } from "lucide-react";
 import Sidebar from "@/app/components/sidebar";
+import { DIAS_SEMANA, formatearHora } from "@/utils/horarios";
 
 const GENERO_LABEL: Record<number, string> = {
   1: "Masculino",
@@ -21,7 +22,7 @@ export default async function PerfilPage() {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+      } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const { data: perfil } = await supabase
@@ -29,6 +30,9 @@ export default async function PerfilPage() {
     .select("nombre, apellido, email, telefono, rol")
     .eq("id_profile", user.id)
     .maybeSingle();
+
+  let especialidadesOdontologo: { id_especialidad: string; nombre: string }[] | null = null;
+  const horarioOdontologo: Record<number, any> = {};
 
   if (!perfil) redirect("/dashboard");
 
@@ -51,6 +55,39 @@ export default async function PerfilPage() {
       .eq("id_odontologo", user.id)
       .maybeSingle();
     odontologo = o;
+
+    if (o) {
+      const { data: espData } = await supabase
+        .from("odontologosxespecialidad")
+        .select("id_especialidad, especialidad!inner(nombre)")
+        .eq("id_odontologo", user.id);
+      if (espData) {
+        especialidadesOdontologo = espData.map((e: any) => ({
+          id_especialidad: e.id_especialidad,
+          nombre: e.especialidad?.nombre ?? "",
+        }));
+      }
+
+      const { data: horarioData } = await supabase
+        .from("odontologos_jornadas")
+        .select("dia_semana, id_jornada")
+        .eq("id_odontologo", user.id);
+
+      if (horarioData && horarioData.length > 0) {
+        const idsJornadas = (horarioData ?? []).map((h: any) => h.id_jornada);
+        const { data: jd } = await supabase
+          .from("jornadas")
+          .select("id_jornada, nombre, hora_inicio, hora_fin")
+          .in("id_jornada", idsJornadas);
+        const jornadasMap: Record<string, any> = {};
+        (jd ?? []).forEach((j: any) => {
+          jornadasMap[j.id_jornada] = j;
+        });
+        (horarioData ?? []).forEach((h: any) => {
+          if (jornadasMap[h.id_jornada]) horarioOdontologo[h.dia_semana] = jornadasMap[h.id_jornada];
+        });
+      }
+    }
   }
 
   const formatearFecha = (iso: string) => {
@@ -174,6 +211,44 @@ export default async function PerfilPage() {
                       </span>
                     </div>
                   </div>
+                  {especialidadesOdontologo && especialidadesOdontologo.length > 0 && (
+                    <div className="flex items-center gap-3 col-span-2">
+                      <div className="w-9 h-9 rounded-lg bg-clinica-light flex items-center justify-center">
+                        <Stethoscope size={16} className="text-clinica-dark" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 font-sans">Especialidades</p>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {especialidadesOdontologo.map((esp) => (
+                            <span key={esp.id_especialidad} className="text-xs font-sans font-semibold bg-blue-50 text-clinica-dark px-2 py-0.5 rounded-full">
+                              {esp.nombre}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {Object.keys(horarioOdontologo).length > 0 && (
+                    <div className="flex items-center gap-3 col-span-2">
+                      <div className="w-9 h-9 rounded-lg bg-clinica-light flex items-center justify-center">
+                        <Clock size={16} className="text-clinica-dark" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 font-sans">Horario</p>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {DIAS_SEMANA.map((dia) => {
+                            const actual = horarioOdontologo[dia.valor];
+                            if (!actual) return null;
+                            return (
+                              <span key={dia.valor} className="text-xs font-sans font-semibold bg-blue-50 text-clinica-dark px-2 py-0.5 rounded-full">
+                                {dia.nombre} · {formatearHora(actual.hora_inicio)} - {formatearHora(actual.hora_fin)}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

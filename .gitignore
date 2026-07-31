@@ -51,3 +51,7 @@ supabase/sar_format.sql
 add_telefono_odontologos.sql
 insert_jornadas_doctores.sql
 jornadas_odontologos.sql
+indexes_jornadas.sql
+indexes_especialidades.sql
+fix_jornadas_policies.sql
+fix_fk_odontologos.sql
