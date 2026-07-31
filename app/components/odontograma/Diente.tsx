@@ -14,16 +14,22 @@ const TOOTH_PATH =
 export function Diente({ diente }: { diente: DienteConEstado }) {
   const { x, y } = calcularPosicion(diente.cuadrante, diente.posicion);
 
-  const colorEstado = diente.estadoActual?.color?.toUpperCase();
-  const esRojo = colorEstado === '#EF4444' || colorEstado === '#FF0000' || diente.estadoActual?.nombre?.toLowerCase() === 'malo';
+  // 1. Extraemos el color que viene directo de la tabla de estados en tu BD
+  const colorBD = diente.estadoActual?.color;
   
-  const colorFinal = esRojo ? COLOR_ROJO : COLOR_CELESTE;
+  // 2. Si trae un color (negro, gris, rojo, etc.), usa ese. Si viene vacío/nulo, usa celeste.
+  let colorFinal = colorBD ? colorBD : COLOR_CELESTE;
+
+  // 3. Mantenemos tu regla de "malo" por si alguna vez el color en la BD está vacío pero el nombre es "malo"
+  if (diente.estadoActual?.nombre?.toLowerCase() === 'malo') {
+    colorFinal = COLOR_ROJO;
+  }
 
   return (
     <g transform={`translate(${x},${y})`} data-fdi={diente.numero_fdi}>
       
       {/* MAGIA AQUÍ: Esta etiqueta crea el tooltip automáticamente */}
-      <title>{`Diente ${diente.numero_fdi} -${diente.nombre || 'Nombre no disponible'}`}</title>
+      <title>{`Diente ${diente.numero_fdi} - ${diente.nombre || 'Nombre no disponible'}`}</title>
       
       <path d={TOOTH_PATH} fill={colorFinal} stroke="#374151" strokeWidth={1.5} />
       <text x={ANCHO / 2} y={ALTO + 14} textAnchor="middle" fontSize={10}>
