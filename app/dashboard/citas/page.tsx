@@ -24,6 +24,7 @@ export default async function CitasPage({
 }: {
   searchParams: Promise<{ estado?: string }>;
 }) {
+
   const { estado } = await searchParams;
   const estadoActivo = estado ?? "2";
 
@@ -96,7 +97,7 @@ export default async function CitasPage({
                   {citas.map((c) => (
                     <tr key={c.id_cita} className="border-b border-gray-50 last:border-0">
                       <td className="py-4 px-6 font-sans font-semibold text-gray-900">
-                        {c.pacientes?.[0]?.primer_nombre} {c.pacientes?.[0]?.primer_apellido}
+                        {c.pacientes?.primer_nombre} {c.pacientes?.primer_apellido}
                       </td>
                       <td className="py-4 px-6 text-gray-600 font-sans text-sm">{c.motivo}</td>
                       <td className="py-4 px-6 text-gray-600 font-sans text-sm whitespace-nowrap">

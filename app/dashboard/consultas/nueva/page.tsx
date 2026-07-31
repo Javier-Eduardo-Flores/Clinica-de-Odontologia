@@ -5,7 +5,6 @@ import { ArrowLeft, ClipboardPlus } from "lucide-react";
 import Link from "next/link";
 
 export default async function NuevaConsultaPage() {
-    // Agrega este tipo arriba del componente
     type CitaDisponible = {
         id_cita: string;
         fecha_cita: string;

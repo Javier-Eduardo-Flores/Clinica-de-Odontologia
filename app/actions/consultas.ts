@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
+
 type LineaTratamiento = {
     id_tratamiento: string;
     cantidad: number;
@@ -88,6 +89,195 @@ export async function eliminarConsulta(id: string) {
 
     if (error) return { error: "No tienes permiso para eliminar esta consulta." };
 
+    revalidatePath("/dashboard/consultas");
+    return { success: true };
+}
+
+type LineaProducto = {
+    id_producto: string;
+    cantidad: number;
+    observaciones: string;
+};
+
+export async function completarCitaConConsulta(data: {
+    id_cita: string;
+    id_odontologo: string;
+    diagnostico: string;
+    observaciones: string;
+    tratamientos: LineaTratamiento[];
+    productos: LineaProducto[];
+}) {
+    const supabase = await createClient();
+
+    if (!data.diagnostico?.trim()) {
+        return { error: "El diagnóstico es obligatorio" };
+    }
+    if (data.tratamientos.length === 0) {
+        return { error: "Agrega al menos un tratamiento" };
+    }
+
+    const { data: nuevaConsulta, error: errorConsulta } = await supabase
+        .from("consultas")
+        .insert({
+            id_cita: data.id_cita,
+            id_odontologo: data.id_odontologo,
+            fecha: new Date().toISOString().slice(0, 10),
+            diagnostico: data.diagnostico,
+            observaciones: data.observaciones,
+        })
+        .select("id_consulta")
+        .single();
+
+    if (errorConsulta) return { error: errorConsulta.message };
+
+    const filasTratamientos = data.tratamientos.map((t) => ({
+        id_consulta: nuevaConsulta.id_consulta,
+        id_tratamiento: t.id_tratamiento,
+        id_producto: null,
+        cantidad: t.cantidad,
+        observaciones: t.observaciones,
+    }));
+
+    const filasProductos = data.productos.map((p) => ({
+        id_consulta: nuevaConsulta.id_consulta,
+        id_tratamiento: null,
+        id_producto: p.id_producto,
+        cantidad: p.cantidad,
+        observaciones: p.observaciones,
+    }));
+
+    const { error: errorDetalle } = await supabase
+        .from("detalle_consultas")
+        .insert([...filasTratamientos, ...filasProductos]);
+
+    if (errorDetalle) {
+        await supabase.from("consultas").delete().eq("id_consulta", nuevaConsulta.id_consulta);
+        return { error: errorDetalle.message };
+    }
+
+    for (const p of data.productos) {
+        const { data: productoActual } = await supabase
+            .from("producto")
+            .select("stock")
+            .eq("id_producto", p.id_producto)
+            .maybeSingle();
+
+        if (productoActual) {
+            await supabase
+                .from("producto")
+                .update({ stock: productoActual.stock - p.cantidad })
+                .eq("id_producto", p.id_producto);
+        }
+    }
+
+    const { error: errorCita } = await supabase
+        .from("citas")
+        .update({ estado: 4 })
+        .eq("id_cita", data.id_cita);
+
+    if (errorCita) return { error: errorCita.message };
+
+    revalidatePath(`/dashboard/citas/${data.id_cita}`);
+    revalidatePath("/dashboard/citas");
+    revalidatePath("/dashboard/consultas");
+    return { success: true };
+}
+
+export async function completarCitaCompleta(data: {
+    id_cita: string;
+    id_odontologo: string;
+    id_paciente: string;
+    medicamentos_actuales: string;
+    observaciones_expediente: string;
+    diagnostico: string;
+    observaciones_consulta: string;
+    tratamientos: LineaTratamiento[];
+    productos: LineaProducto[];
+}) {
+    const supabase = await createClient();
+
+    if (!data.diagnostico?.trim()) {
+        return { error: "El diagnóstico es obligatorio" };
+    }
+    if (data.tratamientos.length === 0 && data.productos.length === 0) {
+        return { error: "Agrega al menos un tratamiento o un producto" };
+    }
+
+    const { error: errorExpediente } = await supabase
+        .from("expediente")
+        .upsert(
+            {
+                id_paciente: data.id_paciente,
+                medicamentos_actuales: data.medicamentos_actuales,
+                observaciones: data.observaciones_expediente,
+            },
+            { onConflict: "id_paciente" }
+        );
+
+    if (errorExpediente) return { error: errorExpediente.message };
+
+    const { data: nuevaConsulta, error: errorConsulta } = await supabase
+        .from("consultas")
+        .insert({
+            id_cita: data.id_cita,
+            id_odontologo: data.id_odontologo,
+            fecha: new Date().toISOString().slice(0, 10),
+            diagnostico: data.diagnostico,
+            observaciones: data.observaciones_consulta,
+        })
+        .select("id_consulta")
+        .single();
+
+    if (errorConsulta) return { error: errorConsulta.message };
+    const filasTratamientos = data.tratamientos.map((t) => ({
+        id_consulta: nuevaConsulta.id_consulta,
+        id_tratamiento: t.id_tratamiento,
+        id_producto: null,
+        cantidad: t.cantidad,
+        observaciones: t.observaciones,
+    }));
+
+    const filasProductos = data.productos.map((p) => ({
+        id_consulta: nuevaConsulta.id_consulta,
+        id_tratamiento: null,
+        id_producto: p.id_producto,
+        cantidad: p.cantidad,
+        observaciones: p.observaciones,
+    }));
+
+    const { error: errorDetalle } = await supabase
+        .from("detalle_consultas")
+        .insert([...filasTratamientos, ...filasProductos]);
+
+    if (errorDetalle) {
+        await supabase.from("consultas").delete().eq("id_consulta", nuevaConsulta.id_consulta);
+        return { error: errorDetalle.message };
+    }
+
+    for (const p of data.productos) {
+        const { data: productoActual } = await supabase
+            .from("producto")
+            .select("stock")
+            .eq("id_producto", p.id_producto)
+            .maybeSingle();
+
+        if (productoActual) {
+            await supabase
+                .from("producto")
+                .update({ stock: productoActual.stock - p.cantidad })
+                .eq("id_producto", p.id_producto);
+        }
+    }
+
+    const { error: errorCita } = await supabase
+        .from("citas")
+        .update({ estado: 4 })
+        .eq("id_cita", data.id_cita);
+
+    if (errorCita) return { error: errorCita.message };
+
+    revalidatePath(`/dashboard/citas/${data.id_cita}`);
+    revalidatePath("/dashboard/citas");
     revalidatePath("/dashboard/consultas");
     return { success: true };
 }

@@ -1,7 +1,8 @@
 // app/components/odontograma/ActualizarOdontogramaForm.tsx
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { actualizarOdontograma } from "@/app/actions/odontograma";
 
 interface DienteOpcion {
@@ -20,10 +21,25 @@ interface Props {
   idPaciente: string;
   dientes: DienteOpcion[];
   estados: EstadoOpcion[];
+  idDienteSeleccionado?: string;
+  onCambiarDiente?: (id: string) => void;
 }
 
-export default function ActualizarOdontogramaForm({ idPaciente, dientes, estados }: Props) {
+export default function ActualizarOdontogramaForm({
+  idPaciente,
+  dientes,
+  estados,
+  idDienteSeleccionado,
+  onCambiarDiente,
+}: Props) {
   const [state, formAction, pending] = useActionState(actualizarOdontograma, null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state && "success" in state && state.success) {
+      router.refresh();
+    }
+  }, [state, router]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -45,6 +61,8 @@ export default function ActualizarOdontogramaForm({ idPaciente, dientes, estados
             id="id_diente"
             name="id_diente"
             required
+            value={idDienteSeleccionado ?? ""}
+            onChange={(e) => onCambiarDiente?.(e.target.value)}
             className="w-full border border-gray-300 rounded-lg py-2 px-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
           >
             <option value="">Selecciona un diente</option>

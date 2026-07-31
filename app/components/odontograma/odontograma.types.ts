@@ -1,4 +1,3 @@
-// odontograma.types.ts
 export type DienteInfo = {
   id_diente: string;
   numero_fdi: number;
@@ -11,7 +10,9 @@ export type EstadoActual = {
   id_estado_diente: string;
   nombre: string;
   color: string;
-} | null; // null = sin registro en odontograma todavía
+  observaciones: string | null;
+  fecha_registro: string | null;
+} | null;
 
 export interface DienteConEstado extends DienteInfo {
   estadoActual: EstadoActual;

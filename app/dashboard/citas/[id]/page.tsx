@@ -3,13 +3,11 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
-import { ArrowLeft, Calendar, Clock, Mail, Phone, IdCard } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Mail, Phone, IdCard, ClipboardPlus } from "lucide-react";
 import { cancelarCitaStaff } from "@/app/actions/citas";
 import CompletarCitaForm from "@/app/components/citas/CompletarCitaForm";
-import ExpedienteForm from "@/app/components/expediente/ExpedienteForm";
-import { Odontograma } from "@/app/components/odontograma/Odontograma";
+import OdontogramaSection from "@/app/components/odontograma/odontogramaseccion";
 import { obtenerDientesConEstado } from "@/app/actions/obtener-dientes";
-import ActualizarOdontogramaForm from "@/app/components/odontograma/ActualizarOdontogramaForm";
 
 const ESTADO_LABEL: Record<number, string> = {
   1: "Pendiente",
@@ -54,7 +52,7 @@ export default async function CitaDetallePage({
     .from("citas")
     .select(
       `id_cita, fecha_cita, motivo, estado,
-       pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento )`
+      pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento )`
     )
     .eq("id_cita", id)
     .maybeSingle();
@@ -66,7 +64,6 @@ export default async function CitaDetallePage({
 
   let medicamentosIniciales: string | null = null;
   let observacionesIniciales: string | null = null;
-  let expedienteActualizadoEn: string | null = null;
   let dientes: Awaited<ReturnType<typeof obtenerDientesConEstado>> = [];
   let catalogoDientes: { id_diente: string; numero_fdi: number; nombre: string }[] = [];
   let catalogoEstados: { id_estado_diente: string; nombre: string; color: string | null }[] = [];
@@ -80,7 +77,6 @@ export default async function CitaDetallePage({
 
     medicamentosIniciales = expediente?.medicamentos_actuales ?? null;
     observacionesIniciales = expediente?.observaciones ?? null;
-    expedienteActualizadoEn = expediente?.actualizado_en ?? null;
 
     dientes = await obtenerDientesConEstado(paciente.id_paciente);
 
@@ -101,6 +97,18 @@ export default async function CitaDetallePage({
   // haya tocado antes el expediente o el odontograma ese mismo día.
   const puedeCompletar = perfil.rol === "doctor" && esPendienteOConfirmada;
 
+  
+
+    const { data: tratamientosDisponibles } = await supabase
+      .from("tratamiento")
+      .select("id_tratamiento, nombre, precio")
+      .order("nombre");
+
+    const { data: productosDisponibles } = await supabase
+      .from("producto")
+      .select("id_producto, nombre, precio, stock")
+      .order("nombre");
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar activePath="/dashboard/citas" />
@@ -116,7 +124,7 @@ export default async function CitaDetallePage({
           </Link>
         </header>
 
-        <main className="p-8 max-w-3xl">
+        <main className="p-8 max-w-5xl">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-sans font-bold text-gray-900">Detalle de la Cita</h1>
             <span className={"text-xs font-sans font-bold px-3 py-1 rounded-full " + (ESTADO_BADGE[cita.estado] ?? "bg-gray-100 text-gray-600")}>
@@ -171,35 +179,15 @@ export default async function CitaDetallePage({
             </div>
           )}
 
-          {/* Expediente + Odontograma — editables aquí mismo, solo para doctor */}
           {paciente && esPendienteOConfirmada && perfil.rol === "doctor" && (
             <>
-              <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                <h2 className="text-sm font-sans font-bold text-gray-400 uppercase mb-4">
-                  Expediente Clínico General
-                </h2>
-                <ExpedienteForm
-                  idPaciente={paciente.id_paciente}
-                  medicamentosIniciales={medicamentosIniciales}
-                  observacionesIniciales={observacionesIniciales}
-                  actualizadoEn={expedienteActualizadoEn}
-                />
-              </div>
 
-              <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                <h2 className="text-sm font-sans font-bold text-gray-400 uppercase mb-4">Odontograma</h2>
-                <div className="mb-6">
-                  <Odontograma dientes={dientes} />
-                </div>
-                <div className="pt-4 border-t border-gray-100">
-                  <h3 className="text-sm font-sans font-bold text-gray-900 mb-3">Registrar nuevo estado</h3>
-                  <ActualizarOdontogramaForm
-                    idPaciente={paciente.id_paciente}
-                    dientes={catalogoDientes}
-                    estados={catalogoEstados}
-                  />
-                </div>
-              </div>
+              <OdontogramaSection
+                dientes={dientes}
+                catalogoDientes={catalogoDientes}
+                catalogoEstados={catalogoEstados}
+                idPaciente={paciente.id_paciente}
+              />
             </>
           )}
 
@@ -210,12 +198,17 @@ export default async function CitaDetallePage({
 
               {puedeCompletar ? (
                 <div className="mb-6">
-                  <p className="text-sm font-sans font-semibold text-gray-900 mb-3">
-                    Completar cita con diagnóstico
-                  </p>
-                  <CompletarCitaForm idCita={cita.id_cita} />
-                </div>
-              ) : (
+                  <CompletarCitaForm
+                    idCita={cita.id_cita}
+                    idOdontologo={user.id}
+                    idPaciente={paciente!.id_paciente}
+                    medicamentosIniciales={medicamentosIniciales}
+                    observacionesExpedienteIniciales={observacionesIniciales}
+                    tratamientosDisponibles={tratamientosDisponibles ?? []}
+                    productosDisponibles={productosDisponibles ?? []}
+                    />
+                  </div>
+                  ) : (
                 <p className="text-sm text-gray-400 font-sans mb-6">
                   Solo el odontólogo puede marcar esta cita como completada.
                 </p>
