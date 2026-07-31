@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
-import { Search, ArrowLeft, Smile } from "lucide-react";
+import { Search, ArrowLeft, UserPlus, Smile } from "lucide-react";
 
 export default async function PacientesPage({
   searchParams,
@@ -27,6 +27,8 @@ export default async function PacientesPage({
   if (!perfil || !["admin", "doctor", "recepcionista"].includes(perfil.rol)) {
     redirect("/dashboard");
   }
+
+  const puedeCrear = ["admin", "recepcionista"].includes(perfil.rol);
 
   let query = supabase
     .from("pacientes")
@@ -68,7 +70,18 @@ export default async function PacientesPage({
         </header>
 
         <main className="p-8">
-          <h1 className="text-3xl font-sans font-bold text-gray-900 mb-6">Pacientes</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-sans font-bold text-gray-900">Pacientes</h1>
+            {puedeCrear && (
+              <Link
+                href="/dashboard/pacientes/nuevo"
+                className="flex items-center gap-1.5 text-sm font-sans font-semibold text-white bg-clinica-dark px-4 py-2 rounded-lg hover:bg-clinica-medium transition-colors"
+              >
+                <UserPlus size={16} />
+                Nuevo Paciente
+              </Link>
+            )}
+          </div>
 
           {!pacientes || pacientes.length === 0 ? (
             <p className="text-gray-400 font-sans">No se encontraron pacientes.</p>
@@ -88,6 +101,12 @@ export default async function PacientesPage({
                     </p>
                     <p className="text-xs text-gray-400">{p.correo}</p>
                   </div>
+                  <Link
+                    href={"/dashboard/pacientes/" + p.id_paciente}
+                    className="flex items-center gap-1.5 text-xs font-sans font-semibold text-gray-600 border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Ver
+                  </Link>
                   <Link
                     href={"/dashboard/pacientes/" + p.id_paciente + "/expediente"}
                     className="flex items-center gap-1.5 text-xs font-sans font-semibold text-clinica-dark border border-clinica-dark px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"

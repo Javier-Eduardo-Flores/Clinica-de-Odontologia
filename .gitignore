@@ -46,3 +46,8 @@ supabase/rls_facturacion.sql
 supabase/sar_format.sql
 
 *.zip
+
+#Supabase
+add_telefono_odontologos.sql
+insert_jornadas_doctores.sql
+jornadas_odontologos.sql

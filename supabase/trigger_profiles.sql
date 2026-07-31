@@ -35,7 +35,7 @@ BEGIN
   ELSIF NEW.raw_user_meta_data ->> 'rol' = 'doctor' then
     INSERT INTO public.odontologos (
       id_odontologo,primer_nombre,segundo_nombre,primer_apellido,segundo_apellido,
-      correo, direccion, fecha_nacimiento, estado, sueldo,dni
+      correo, telefono, direccion, fecha_nacimiento, estado, sueldo, dni
     ) VALUES (
       NEW.id,
       NEW.raw_user_meta_data ->>'primer_nombre',
@@ -43,6 +43,7 @@ BEGIN
       NEW.raw_user_meta_data ->>'primer_apellido',
       NULLIF(NEW.raw_user_meta_data ->>'segundo_apellido', ''),
       NEW.email,
+      NEW.raw_user_meta_data ->>'telefono',
       NULLIF(NEW.raw_user_meta_data ->>'direccion', ''),
       (NEW.raw_user_meta_data ->>'fecha_nacimiento')::date,
       1,

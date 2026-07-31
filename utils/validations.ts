@@ -56,10 +56,12 @@ export function validateTelefono(value: string): string | null {
 
 export function validateFechaNacimiento(value: string): string | null {
   if (!value) return 'La fecha de nacimiento es obligatoria';
-  const date = new Date(value);
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number);
+  const date = new Date(y, m - 1, d);
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   if (date > today) return 'La fecha no puede ser en el futuro';
-  const age = today.getFullYear() - date.getFullYear();
+  const age = today.getFullYear() - y;
   if (age > 120) return 'Ingrese una fecha válida';
   if (age < 1) return 'Usted ni dientes tiene';
   return null;
