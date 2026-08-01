@@ -132,3 +132,19 @@ export async function signOut() {
     revalidatePath("/","layout");
     redirect("/login");
 }
+
+// Función para recuperar la contraseña 
+export async function recuperarPassword(prevState: any, formData: FormData) {
+  const supabase = await createClient();
+  const email = formData.get("email") as string;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+  });
+
+  if (error) {
+    return { error: "No se pudo enviar el correo: " + error.message, success: false };
+  }
+
+  return { success: true, error: null };
+}

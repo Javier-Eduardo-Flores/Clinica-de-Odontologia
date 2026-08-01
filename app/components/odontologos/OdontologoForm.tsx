@@ -2,9 +2,8 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { crearPaciente, type PacienteState } from "@/app/actions/pacientes";
+import { crearOdontologo, type OdontologoState } from "@/app/actions/odontologos";
 import Input from "@/Components/UI/Input";
-import Select from "@/Components/UI/Select";
 import Textarea from "@/Components/UI/Textarea";
 import {
   validateEmail,
@@ -15,12 +14,12 @@ import {
   validateTelefono,
   validateFechaNacimiento,
   validateDireccion,
-  validateGenero,
+  validateSueldo,
 } from "@/utils/validations";
 
-export default function PacienteForm() {
-  const [state, formAction, pending] = useActionState<PacienteState, FormData>(
-    crearPaciente,
+export default function OdontologoForm() {
+  const [state, formAction, pending] = useActionState<OdontologoState, FormData>(
+    crearOdontologo,
     null
   );
 
@@ -34,14 +33,14 @@ export default function PacienteForm() {
   const [telefono, setTelefono] = useState("");
   const [fechaNacimiento, setFechaNacimiento] = useState("");
   const [direccion, setDireccion] = useState("");
-  const [genero, setGenero] = useState("");
+  const [sueldo, setSueldo] = useState("");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
 
   useEffect(() => {
     if (state && "success" in state && state.success) {
-      router.push("/dashboard/pacientes");
+      router.push("/dashboard/odontologos");
     }
   }, [state, router]);
 
@@ -78,8 +77,8 @@ export default function PacienteForm() {
       case "direccion":
         error = validateDireccion(value);
         break;
-      case "genero":
-        error = validateGenero(value);
+      case "sueldo":
+        error = validateSueldo(value);
         break;
     }
     setErrors((prev) => {
@@ -122,8 +121,8 @@ export default function PacienteForm() {
       case "direccion":
         setDireccion(value);
         break;
-      case "genero":
-        setGenero(value);
+      case "sueldo":
+        setSueldo(value);
         break;
     }
   };
@@ -259,21 +258,17 @@ export default function PacienteForm() {
         onBlur={(e) => validate("direccion", e.target.value)}
       />
 
-      <Select
-        label="Género"
-        name="genero"
+      <Input
+        type="number"
+        step="0.01"
+        label="Sueldo"
+        name="sueldo"
+        placeholder="15000.00"
         required={true}
-        placeholder="Seleccionar género"
-        options={[
-          { value: "1", label: "Masculino" },
-          { value: "2", label: "Femenino" },
-        ]}
-        value={genero}
-        error={errors.genero}
-        onChange={(e) => {
-          handleChange("genero", e.target.value);
-          validate("genero", e.target.value);
-        }}
+        value={sueldo}
+        error={errors.sueldo}
+        onChange={(e) => handleChange("sueldo", e.target.value)}
+        onBlur={(e) => validate("sueldo", e.target.value)}
       />
 
       <button
@@ -281,7 +276,7 @@ export default function PacienteForm() {
         disabled={pending}
         type="submit"
       >
-        {pending ? "Creando paciente..." : "Crear Paciente"}
+        {pending ? "Creando odontólogo..." : "Crear Odontólogo"}
       </button>
     </form>
   );
