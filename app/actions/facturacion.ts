@@ -236,3 +236,100 @@ export async function eliminarFactura(idFactura: string): Promise<FacturaState> 
   revalidatePath("/dashboard/facturacion");
   return { success: true };
 }
+
+export type GenerarFacturaCitaParams = {
+  idPaciente: string;
+  tratamientos: {
+    id_tratamiento: string;
+    cantidad: number;
+    precio_unitario: number;
+    id_descuento?: string;
+    monto_descuento?: number;
+  }[];
+  tipoDocumento?: string; // Por defecto "01"
+  aplicaISV?: boolean;   // Por defecto true (15%)
+};
+
+export async function generarFacturaAutomaticaCita({
+  idPaciente,
+  tratamientos,
+  tipoDocumento = "01",
+  aplicaISV = true,
+}: GenerarFacturaCitaParams): Promise<FacturaState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "No autorizado" };
+
+  if (!idPaciente) return { error: "ID de paciente requerido" };
+  if (!tratamientos || tratamientos.length === 0) return { error: "No hay tratamientos para facturar" };
+
+  // 1. Subtotal a partir de la lista de tratamientos de la consulta
+  const subtotal = tratamientos.reduce(
+    (sum, t) => sum + (t.cantidad || 1) * t.precio_unitario - (t.monto_descuento || 0),
+    0
+  );
+
+  // ISV (15%) basado en subtotal si aplica
+  const impuestos = aplicaISV ? subtotal * 0.15 : 0;
+  const fechaFinal = new Date().toISOString().slice(0, 10);
+
+  // 2. Correlativo exactamente con tu formato: 000-001-01-XXXXXXX
+  const prefix = `000-001-${tipoDocumento}-`;
+  const { data: lastInvoice } = await supabase
+    .from("factura")
+    .select("no_factura")
+    .like("no_factura", `${prefix}%`)
+    .order("no_factura", { ascending: false })
+    .limit(1);
+
+  let nextCorr = 1;
+  if (lastInvoice?.[0]?.no_factura) {
+    const lastNum = parseInt(lastInvoice[0].no_factura.slice(-8), 10);
+    if (!isNaN(lastNum)) nextCorr = lastNum + 1;
+  }
+
+  const noFactura = `${prefix}${String(nextCorr).padStart(8, "0")}`;
+
+  // 3. Creación del registro en tabla 'factura' (con estado 1: Pendiente)
+  const { data: factura, error: errFactura } = await supabase
+    .from("factura")
+    .insert({
+      id_paciente: idPaciente,
+      fecha: fechaFinal,
+      subtotal,
+      impuestos,
+      tipo_documento: tipoDocumento,
+      no_factura: noFactura,
+      estado: 1, // 1 = Pendiente
+    })
+    .select("id_factura")
+    .single();
+
+  if (errFactura) return { error: errFactura.message };
+
+  // 4. Inserción en 'detalle_factura'
+  const detallesInsert = tratamientos.map((t) => ({
+    id_factura: factura.id_factura,
+    id_tratamiento: t.id_tratamiento || null,
+    cantidad: t.cantidad || 1,
+    precio_unitario: t.precio_unitario,
+    id_descuento: t.id_descuento || null,
+    monto_descuento: t.monto_descuento || 0,
+  }));
+
+  const { error: errDetalles } = await supabase
+    .from("detalle_factura")
+    .insert(detallesInsert);
+
+  // Rollback si fallan los detalles
+  if (errDetalles) {
+    await supabase.from("factura").delete().eq("id_factura", factura.id_factura);
+    return { error: errDetalles.message };
+  }
+
+  revalidatePath("/dashboard/facturacion");
+  return { success: true };
+}
