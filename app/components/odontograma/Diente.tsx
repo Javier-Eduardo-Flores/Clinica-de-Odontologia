@@ -22,31 +22,9 @@ export function Diente({
 }) {
   const { x, y } = calcularPosicion(diente.cuadrante, diente.posicion);
 
-<<<<<<< HEAD
-  const colorEstado = diente.estadoActual?.color?.toUpperCase();
-  const esRojo = colorEstado === '#EF4444' || colorEstado === '#FF0000' || diente.estadoActual?.nombre?.toLowerCase() === 'malo';
-
-  const colorFinal = esRojo ? COLOR_ROJO : COLOR_CELESTE;
-
-  return (
-    <g
-      transform={`translate(${x},${y})`}
-      data-fdi={diente.numero_fdi}
-      onClick={() => onSeleccionar(diente)}
-      className="cursor-pointer"
-    >
-      <title>{`Diente ${diente.numero_fdi} -${diente.nombre || 'Nombre no disponible'}`}</title>
-
-      <path
-        d={TOOTH_PATH}
-        fill={colorFinal}
-        stroke={seleccionado ? '#0C2B4E' : '#374151'}
-        strokeWidth={seleccionado ? 3 : 1.5}
-      />
-=======
   // 1. Extraemos el color que viene directo de la tabla de estados en tu BD
   const colorBD = diente.estadoActual?.color;
-  
+
   // 2. Si trae un color (negro, gris, rojo, etc.), usa ese. Si viene vacío/nulo, usa celeste.
   let colorFinal = colorBD ? colorBD : COLOR_CELESTE;
 
@@ -57,12 +35,15 @@ export function Diente({
 
   return (
     <g transform={`translate(${x},${y})`} data-fdi={diente.numero_fdi}>
-      
       {/* MAGIA AQUÍ: Esta etiqueta crea el tooltip automáticamente */}
       <title>{`Diente ${diente.numero_fdi} - ${diente.nombre || 'Nombre no disponible'}`}</title>
-      
-      <path d={TOOTH_PATH} fill={colorFinal} stroke="#374151" strokeWidth={1.5} />
->>>>>>> 76a567b27371cd26318e150bf495614f017adb1c
+
+      <path
+        d={TOOTH_PATH}
+        fill={colorFinal}
+        stroke="#374151"
+        strokeWidth={1.5}
+      />
       <text x={ANCHO / 2} y={ALTO + 14} textAnchor="middle" fontSize={10}>
         {diente.numero_fdi}
       </text>
