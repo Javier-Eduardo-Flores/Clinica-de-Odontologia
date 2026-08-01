@@ -247,7 +247,8 @@ export async function cancelarCitaStaff(formData: FormData) {
 export type CompletarCitaState = { error: string } | null;
 
 /**
- * Marca una cita como completada Y crea la consulta asociada con el diagnóstico.
+ * Marca una cita como completada, crea la consulta médica y genera automáticamente 
+ * la factura con su numeración correlativa y 15% ISV.
  */
 export async function completarCitaConConsulta(
   prevState: CompletarCitaState,
@@ -268,6 +269,7 @@ export async function completarCitaConConsulta(
     return { error: "El diagnóstico es obligatorio." };
   }
 
+  // 1. Obtener los datos de la cita
   const { data: cita, error: errorCitaInfo } = await supabase
     .from("citas")
     .select("id_usuario, id_tratamiento")
@@ -278,6 +280,7 @@ export async function completarCitaConConsulta(
     return { error: "No se encontró la cita." };
   }
 
+  // 2. Insertar la consulta
   const { data: consulta, error: errorConsulta } = await supabase
     .from("consultas")
     .insert({
@@ -293,6 +296,7 @@ export async function completarCitaConConsulta(
     return { error: "No se pudo crear la consulta: " + (errorConsulta?.message ?? "") };
   }
 
+  // 3. Crear el detalle de la consulta y la factura asociada
   if (cita.id_tratamiento) {
     await supabase.from("detalle_consultas").insert({
       id_consulta: consulta.id_consulta,
@@ -309,39 +313,77 @@ export async function completarCitaConConsulta(
     if (tratamiento) {
       const subtotal = Number(tratamiento.precio);
       const impuestos = Number((subtotal * 0.15).toFixed(2));
-      const total = Number((subtotal + impuestos).toFixed(2));
+      const tipoDocumento = "01";
+      const fechaFinal = new Date().toISOString().slice(0, 10);
 
-      const { data: factura } = await supabase
+      // Generar correlativo (Formato: 000-001-01-XXXXXXX)
+      const prefix = `000-001-${tipoDocumento}-`;
+      const { data: lastInvoice } = await supabase
+        .from("factura")
+        .select("no_factura")
+        .like("no_factura", `${prefix}%`)
+        .order("no_factura", { ascending: false })
+        .limit(1);
+
+      let nextCorr = 1;
+      if (lastInvoice?.[0]?.no_factura) {
+        const lastNum = parseInt(lastInvoice[0].no_factura.slice(-8), 10);
+        if (!isNaN(lastNum)) nextCorr = lastNum + 1;
+      }
+
+      const noFactura = `${prefix}${String(nextCorr).padStart(8, "0")}`;
+
+      // Insertar la factura
+      const { data: factura, error: errFactura } = await supabase
         .from("factura")
         .insert({
           id_paciente: cita.id_usuario,
+          fecha: fechaFinal,
           subtotal,
           impuestos,
-          total,
+          tipo_documento: tipoDocumento,
+          no_factura: noFactura,
+          estado: 1, // 1 = Pendiente
         })
         .select("id_factura")
         .single();
 
-      if (factura) {
-        await supabase.from("detalle_factura").insert({
+      if (errFactura) {
+        console.error("Error al crear la factura:", errFactura.message);
+      } else if (factura) {
+        // Insertar el detalle de la factura
+        const { error: errDetalle } = await supabase.from("detalle_factura").insert({
           id_factura: factura.id_factura,
           id_tratamiento: cita.id_tratamiento,
           cantidad: 1,
           precio_unitario: subtotal,
+          monto_descuento: 0,
         });
+
+        if (errDetalle) {
+          console.error("Error al insertar detalle de factura:", errDetalle.message);
+        }
       }
     }
   }
 
+  // 4. Cambiar estado de la cita a Completada (4)
   const { error: errorCita } = await supabase
     .from("citas")
-    .update({ estado: 4 }) // Completada
+    .update({ estado: 4 })
     .eq("id_cita", id_cita);
 
   if (errorCita) {
-    return { error: "La consulta se creó, pero no se pudo actualizar el estado de la cita: " + errorCita.message };
+    return {
+      error:
+        "La consulta se creó, pero no se pudo actualizar el estado de la cita: " +
+        errorCita.message,
+    };
   }
 
+  // 5. Revalidar y redireccionar
+  revalidatePath("/dashboard");
   revalidatePath("/dashboard/citas");
+  revalidatePath("/dashboard/facturacion");
   redirect("/dashboard/citas");
-} 
+}

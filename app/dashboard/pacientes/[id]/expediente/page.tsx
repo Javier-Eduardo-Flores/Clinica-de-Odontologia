@@ -3,11 +3,9 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
-import { ArrowLeft, Smile, Calendar, Clock } from "lucide-react";
-import ExpedienteForm from "@/app/components/expediente/ExpedienteForm";
+import { ArrowLeft, Smile, Calendar, Clock, Stethoscope } from "lucide-react";
 import { Odontograma } from "@/app/components/odontograma/Odontograma";
 import { obtenerDientesConEstado } from "@/app/actions/obtener-dientes";
-import ActualizarOdontogramaForm from "@/app/components/odontograma/ActualizarOdontogramaForm";
 
 const ESTADO_LABEL: Record<number, string> = {
   1: "Pendiente",
@@ -54,36 +52,54 @@ export default async function ExpedientePacientePage({
 
   if (!paciente) notFound();
 
-  // TODO el historial de citas del paciente (cualquier estado)
+  // 1. Historial de citas del paciente
   const { data: citas } = await supabase
     .from("citas")
     .select(
       `id_cita, fecha_cita, motivo, estado,
-       consultas ( id_consulta, diagnostico, observaciones, odontologos ( primer_nombre, primer_apellido ),
-         detalle_consultas ( tratamiento ( nombre ) ) )`
+       consultas ( 
+          id_consulta, 
+          diagnostico, 
+          observaciones, 
+          odontologos ( primer_nombre, primer_apellido ),
+          detalle_consultas ( tratamiento ( nombre ) ) 
+       )`
     )
     .eq("id_usuario", id)
     .order("fecha_cita", { ascending: false });
 
-  // Datos generales del expediente clínico (si existe fila)
+  // 2. Obtener la ÚLTIMA CONSULTA realizada por el doctor para este paciente
+  const { data: ultimaConsulta } = await supabase
+    .from("consultas")
+    .select(
+      `id_consulta, diagnostico, observaciones, creado_en,
+       odontologos ( primer_nombre, primer_apellido ),
+       detalle_consultas ( tratamiento ( nombre ) )`
+    )
+    .eq("id_paciente", id)
+    .order("creado_en", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // 3. Datos generales del expediente clínico
   const { data: expediente } = await supabase
     .from("expediente")
     .select("medicamentos_actuales, observaciones, actualizado_en")
     .eq("id_paciente", id)
     .maybeSingle();
 
-  // ODONTOGRAMA — estado actual + catálogos para el formulario de edición
+  // 4. ODONTOGRAMA — estado actual (piezas dentales)
   const dientes = await obtenerDientesConEstado(id);
 
-  const { data: catalogoDientes } = await supabase
-    .from("diente")
-    .select("id_diente, numero_fdi, nombre")
-    .order("numero_fdi", { ascending: true });
+  // Normalización de datos del doctor
+  const medicoUltima = Array.isArray(ultimaConsulta?.odontologos)
+    ? ultimaConsulta?.odontologos[0]
+    : ultimaConsulta?.odontologos;
 
-  const { data: catalogoEstados } = await supabase
-    .from("estado_diente")
-    .select("id_estado_diente, nombre, color")
-    .order("nombre", { ascending: true });
+  const tratamientosUltima = (ultimaConsulta?.detalle_consultas ?? [])
+    .map((d: any) => (Array.isArray(d.tratamiento) ? d.tratamiento[0]?.nombre : d.tratamiento?.nombre))
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -117,33 +133,117 @@ export default async function ExpedientePacientePage({
             DNI: {paciente.dni} · {paciente.correo} · {paciente.telefono}
           </p>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-            <h2 className="text-xl font-sans font-bold text-gray-900 mb-4">
-              Expediente Clínico General
-            </h2>
-            <ExpedienteForm
-              idPaciente={paciente.id_paciente}
-              medicamentosIniciales={expediente?.medicamentos_actuales ?? null}
-              observacionesIniciales={expediente?.observaciones ?? null}
-              actualizadoEn={expediente?.actualizado_en ?? null}
-            />
-          </div>
-
-          <div id="odontograma" className="bg-white rounded-xl shadow-sm p-6 mb-6 scroll-mt-8">
-            <h2 className="text-xl font-sans font-bold text-gray-900 mb-4">Odontograma</h2>
-            <div className="mb-6">
-              <Odontograma dientes={dientes} />
+          {/* Expediente Clínico General (Amarrado a la consulta de la cita si existe) */}
+          <div className="bg-white rounded-xl shadow-sm p-6 mb-6 space-y-4">
+            <div>
+              <h2 className="text-xl font-sans font-bold text-gray-900">
+                Expediente Clínico General
+              </h2>
+              <p className="text-xs text-gray-400 mt-1">
+                Última actualización:{" "}
+                {ultimaConsulta?.creado_en
+                  ? new Date(ultimaConsulta.creado_en).toLocaleString("es-HN")
+                  : expediente?.actualizado_en
+                  ? new Date(expediente.actualizado_en).toLocaleString("es-HN")
+                  : "Sin registros"}
+              </p>
             </div>
-            <div className="pt-4 border-t border-gray-100">
-              <h3 className="text-sm font-sans font-bold text-gray-900 mb-3">Registrar nuevo estado</h3>
-              <ActualizarOdontogramaForm
-                idPaciente={paciente.id_paciente}
-                dientes={catalogoDientes ?? []}
-                estados={catalogoEstados ?? []}
+
+            <div>
+              <label className="block text-xs font-sans font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Medicamentos actuales (opcional)
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={expediente?.medicamentos_actuales || "No consume medicamentos actualmente."}
+                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-700 text-sm focus:outline-none cursor-default"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-sans font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Observaciones generales *
+              </label>
+              <textarea
+                rows={3}
+                readOnly
+                value={
+                  ultimaConsulta?.observaciones ||
+                  expediente?.observaciones ||
+                  "Sin observaciones registradas."
+                }
+                className="w-full p-3.5 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-700 text-sm focus:outline-none resize-none cursor-default"
               />
             </div>
           </div>
 
+          {/* Odontograma */}
+          <div id="odontograma" className="bg-white rounded-xl shadow-sm p-6 mb-6 scroll-mt-8">
+            <h2 className="text-xl font-sans font-bold text-gray-900 mb-4">Odontograma</h2>
+            <div>
+              <Odontograma dientes={dientes} />
+            </div>
+          </div>
+
+          {/* Detalle de la última consulta realizada en la cita */}
+          {ultimaConsulta && (
+            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+              <h2 className="text-xl font-sans font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Stethoscope size={20} className="text-clinica-dark" />
+                Última Consulta Médica
+              </h2>
+
+              <div className="border border-gray-100 rounded-lg p-4 bg-gray-50/30 space-y-3">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                  <span className="text-xs font-sans text-gray-500 flex items-center gap-1.5">
+                    <Calendar size={13} />
+                    {new Date(ultimaConsulta.creado_en).toLocaleDateString("es-HN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                  {medicoUltima && (
+                    <span className="text-xs font-sans font-medium text-gray-700 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                      Dr(a). {medicoUltima.primer_nombre} {medicoUltima.primer_apellido}
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-0.5">
+                    Diagnóstico
+                  </span>
+                  <p className="text-sm font-sans text-gray-800">
+                    {ultimaConsulta.diagnostico || "Sin diagnóstico registrado."}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-0.5">
+                    Observaciones
+                  </span>
+                  <p className="text-sm font-sans text-gray-600">
+                    {ultimaConsulta.observaciones || "Sin observaciones."}
+                  </p>
+                </div>
+
+                {tratamientosUltima && (
+                  <div className="pt-2 border-t border-gray-100/80">
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-0.5">
+                      Tratamientos Aplicados
+                    </span>
+                    <p className="text-sm font-sans text-clinica-dark font-medium">
+                      {tratamientosUltima}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Historial de Citas */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-sans font-bold text-gray-900 mb-4">Historial de Citas</h2>
 
@@ -152,42 +252,69 @@ export default async function ExpedientePacientePage({
             ) : (
               <div className="flex flex-col gap-4">
                 {citas.map((c) => {
-                  const consulta = c.consultas?.[0];
+                  // Supabase puede mapear relaciones como arreglos
+                  const consulta = Array.isArray(c.consultas) ? c.consultas[0] : c.consultas;
+                  const medico = Array.isArray(consulta?.odontologos)
+                    ? consulta?.odontologos[0]
+                    : consulta?.odontologos;
+
                   const tratamientos = (consulta?.detalle_consultas ?? [])
-                    .map((d: any) => d.tratamiento?.nombre)
+                    .map((d: any) =>
+                      Array.isArray(d.tratamiento) ? d.tratamiento[0]?.nombre : d.tratamiento?.nombre
+                    )
                     .filter(Boolean)
                     .join(", ");
+
                   return (
                     <div key={c.id_cita} className="border border-gray-100 rounded-lg p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-3 text-sm text-gray-500 font-sans">
                           <span className="flex items-center gap-1.5">
                             <Calendar size={13} />
-                            {new Date(c.fecha_cita).toLocaleDateString("es-HN", { day: "2-digit", month: "short", year: "numeric" })}
+                            {new Date(c.fecha_cita).toLocaleDateString("es-HN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <Clock size={13} />
-                            {new Date(c.fecha_cita).toLocaleTimeString("es-HN", { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(c.fecha_cita).toLocaleTimeString("es-HN", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </span>
                         </div>
-                        <span className={"text-[10px] font-sans font-bold px-2 py-0.5 rounded-full " + (ESTADO_BADGE[c.estado] ?? "bg-gray-100 text-gray-600")}>
+                        <span
+                          className={
+                            "text-[10px] font-sans font-bold px-2 py-0.5 rounded-full " +
+                            (ESTADO_BADGE[c.estado] ?? "bg-gray-100 text-gray-600")
+                          }
+                        >
                           {ESTADO_LABEL[c.estado] ?? c.estado}
                         </span>
                       </div>
                       <p className="font-sans font-semibold text-gray-900 text-sm">{c.motivo}</p>
 
                       {consulta && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <p className="text-xs text-gray-400 font-sans mb-1">
-                            Atendido por Dr(a). {consulta.odontologos?.[0]?.primer_nombre} {consulta.odontologos?.[0]?.primer_apellido}
-                          </p>
+                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+                          {medico && (
+                            <p className="text-xs text-gray-400 font-sans">
+                              Atendido por Dr(a). {medico.primer_nombre} {medico.primer_apellido}
+                            </p>
+                          )}
                           {consulta.diagnostico && (
                             <p className="text-sm text-gray-600 font-sans">
                               <span className="font-semibold">Diagnóstico:</span> {consulta.diagnostico}
                             </p>
                           )}
+                          {consulta.observaciones && (
+                            <p className="text-sm text-gray-600 font-sans">
+                              <span className="font-semibold">Observaciones:</span> {consulta.observaciones}
+                            </p>
+                          )}
                           {tratamientos && (
-                            <p className="text-sm text-gray-600 font-sans mt-1">
+                            <p className="text-sm text-gray-600 font-sans">
                               <span className="font-semibold">Tratamientos:</span> {tratamientos}
                             </p>
                           )}

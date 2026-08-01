@@ -269,6 +269,97 @@ export async function completarCitaCompleta(data: {
         }
     }
 
+    // =====================================================================
+    // GENERAR FACTURA AUTOMÁTICAMENTE con todos los tratamientos y
+    // productos registrados en esta consulta.
+    // =====================================================================
+    if (data.tratamientos.length > 0 || data.productos.length > 0) {
+        const idsTratamiento = data.tratamientos.map((t) => t.id_tratamiento);
+        const idsProducto = data.productos.map((p) => p.id_producto);
+
+        const [{ data: preciosTratamientos }, { data: preciosProductos }] = await Promise.all([
+            idsTratamiento.length > 0
+                ? supabase.from("tratamiento").select("id_tratamiento, precio").in("id_tratamiento", idsTratamiento)
+                : Promise.resolve({ data: [] as { id_tratamiento: string; precio: number }[] }),
+            idsProducto.length > 0
+                ? supabase.from("producto").select("id_producto, precio").in("id_producto", idsProducto)
+                : Promise.resolve({ data: [] as { id_producto: string; precio: number }[] }),
+        ]);
+
+        const mapaPreciosTratamiento = new Map((preciosTratamientos ?? []).map((t) => [t.id_tratamiento, Number(t.precio)]));
+        const mapaPreciosProducto = new Map((preciosProductos ?? []).map((p) => [p.id_producto, Number(p.precio)]));
+
+        const lineasFactura: {
+            id_tratamiento: string | null;
+            id_producto: string | null;
+            cantidad: number;
+            precio_unitario: number;
+        }[] = [];
+
+        for (const t of data.tratamientos) {
+            const precio = mapaPreciosTratamiento.get(t.id_tratamiento) ?? 0;
+            lineasFactura.push({ id_tratamiento: t.id_tratamiento, id_producto: null, cantidad: t.cantidad, precio_unitario: precio });
+        }
+        for (const p of data.productos) {
+            const precio = mapaPreciosProducto.get(p.id_producto) ?? 0;
+            lineasFactura.push({ id_tratamiento: null, id_producto: p.id_producto, cantidad: p.cantidad, precio_unitario: precio });
+        }
+
+        const subtotal = lineasFactura.reduce((acc, l) => acc + l.precio_unitario * l.cantidad, 0);
+        const impuestos = Number((subtotal * 0.15).toFixed(2)); // ISV 15% — AJUSTA si tu clínica usa otra tasa
+        const total = Number((subtotal + impuestos).toFixed(2));
+        const tipoDocumento = "01";
+
+        // Correlativo de factura (Formato: 000-001-01-XXXXXXXX)
+        const prefix = `000-001-${tipoDocumento}-`;
+        const { data: ultimaFactura } = await supabase
+            .from("factura")
+            .select("no_factura")
+            .like("no_factura", `${prefix}%`)
+            .order("no_factura", { ascending: false })
+            .limit(1);
+
+        let siguienteCorrelativo = 1;
+        if (ultimaFactura?.[0]?.no_factura) {
+            const ultimoNum = parseInt(ultimaFactura[0].no_factura.slice(-8), 10);
+            if (!isNaN(ultimoNum)) siguienteCorrelativo = ultimoNum + 1;
+        }
+        const noFactura = `${prefix}${String(siguienteCorrelativo).padStart(8, "0")}`;
+
+        const { data: nuevaFactura, error: errorFactura } = await supabase
+            .from("factura")
+            .insert({
+                id_paciente: data.id_paciente,
+                fecha: new Date().toISOString().slice(0, 10),
+                subtotal: Number(subtotal.toFixed(2)),
+                impuestos,
+                total,
+                tipo_documento: tipoDocumento,
+                no_factura: noFactura,
+                estado: 1, // Pendiente de pago
+            })
+            .select("id_factura")
+            .single();
+
+        if (errorFactura) {
+            console.error("Error al crear la factura:", errorFactura.message);
+        } else if (nuevaFactura) {
+            const filasDetalleFactura = lineasFactura.map((l) => ({
+                id_factura: nuevaFactura.id_factura,
+                id_tratamiento: l.id_tratamiento,
+                id_producto: l.id_producto,
+                cantidad: l.cantidad,
+                precio_unitario: l.precio_unitario,
+                monto_descuento: 0,
+            }));
+
+            const { error: errorDetalleFactura } = await supabase.from("detalle_factura").insert(filasDetalleFactura);
+            if (errorDetalleFactura) {
+                console.error("Error al insertar detalle de factura:", errorDetalleFactura.message);
+            }
+        }
+    }
+
     const { error: errorCita } = await supabase
         .from("citas")
         .update({ estado: 4 })
@@ -279,5 +370,6 @@ export async function completarCitaCompleta(data: {
     revalidatePath(`/dashboard/citas/${data.id_cita}`);
     revalidatePath("/dashboard/citas");
     revalidatePath("/dashboard/consultas");
+    revalidatePath("/dashboard/facturacion");
     return { success: true };
 }

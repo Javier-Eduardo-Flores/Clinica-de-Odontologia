@@ -1,6 +1,6 @@
 // app/actions/obtener-dientes.ts
 import { createClient } from '@/utils/supabase/server'; 
-import type { DienteConEstado } from '@/Components/UI/odontograma/odontograma.types';
+import type { DienteConEstado } from '@/app/components/odontograma/odontograma.types';
 
 export async function obtenerDientesConEstado(idPaciente: string): Promise<DienteConEstado[]> {
   const supabase = await createClient();
