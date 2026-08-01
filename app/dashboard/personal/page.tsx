@@ -1,8 +1,9 @@
 // app/dashboard/personal/page.tsx
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
-import { Search, Mail, Phone } from "lucide-react";
+import { Search, Mail, Phone, UserPlus, Edit, Trash2 } from "lucide-react";
 
 const ROL_LABEL: Record<string, string> = {
   admin: "Administrador",
@@ -39,6 +40,8 @@ export default async function PersonalPage({
     redirect("/dashboard");
   }
 
+  const esAdmin = perfil.rol === "admin";
+
   let query = supabase
     .from("profiles")
     .select("id_profile, nombre, apellido, email, telefono, rol")
@@ -73,7 +76,18 @@ export default async function PersonalPage({
         </header>
 
         <main className="p-8">
-          <h1 className="text-3xl font-sans font-bold text-gray-900 mb-6">Personal</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-sans font-bold text-gray-900">Personal</h1>
+            {esAdmin && (
+              <Link
+                href="/dashboard/personal/nuevo"
+                className="flex items-center gap-1.5 text-sm font-sans font-semibold text-white bg-clinica-dark px-4 py-2 rounded-lg hover:bg-clinica-medium transition-colors"
+              >
+                <UserPlus size={16} />
+                Nuevo Recepcionista
+              </Link>
+            )}
+          </div>
 
           {!personal || personal.length === 0 ? (
             <p className="text-gray-400 font-sans">No se encontró personal.</p>
@@ -100,6 +114,24 @@ export default async function PersonalPage({
                       <Phone size={12} /> {p.telefono}
                     </div>
                   </div>
+                  {esAdmin && p.rol === "recepcionista" && (
+                    <div className="flex flex-col gap-1.5 ml-2">
+                      <Link
+                        href={`/dashboard/personal/${p.id_profile}/editar`}
+                        className="flex items-center gap-1 text-xs font-sans font-semibold text-clinica-dark border border-clinica-dark px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        <Edit size={12} />
+                        Editar
+                      </Link>
+                      <Link
+                        href={`/dashboard/personal/${p.id_profile}/eliminar`}
+                        className="flex items-center gap-1 text-xs font-sans font-semibold text-red-600 border border-red-300 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 size={12} />
+                        Eliminar
+                      </Link>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

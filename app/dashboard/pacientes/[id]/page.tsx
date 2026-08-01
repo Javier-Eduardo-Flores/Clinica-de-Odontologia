@@ -2,8 +2,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Edit, Trash2, FileText, Mail, Phone, MapPin, Calendar, User } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, FileText, Mail, Phone, MapPin, Calendar, User, Cake } from "lucide-react";
 import Sidebar from "@/app/components/sidebar";
+import { calcularEdad } from "@/utils/fechas";
 
 const GENERO_LABEL: Record<number, string> = {
   1: "Masculino",
@@ -54,6 +55,8 @@ export default async function PacienteDetallePage({
       day: "numeric",
     });
   })();
+
+  const edad = calcularEdad(paciente.fecha_nacimiento);
 
   const fechaRegistro = new Date(paciente.fecha_registro).toLocaleDateString("es-HN", {
     year: "numeric",
@@ -132,6 +135,15 @@ export default async function PacienteDetallePage({
                 <div>
                   <p className="text-xs text-gray-400 font-sans">Fecha de Nacimiento</p>
                   <p className="text-sm font-sans font-semibold text-gray-900">{fechaNacimiento}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-clinica-light flex items-center justify-center">
+                  <Cake size={16} className="text-clinica-dark" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-sans">Edad</p>
+                  <p className="text-sm font-sans font-semibold text-gray-900">{edad != null ? `${edad} años` : "—"}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">

@@ -33,6 +33,7 @@ export default function EditarPerfilForm({ paciente, rol }: { paciente: Paciente
   const [errors, setErrors] = useState<Record<string, string>>({});
   const router = useRouter();
   const esPaciente = rol === "paciente";
+  const esBasico = rol === "admin" || rol === "recepcionista";
 
   useEffect(() => {
     if (state && "success" in state && state.success) {
@@ -125,17 +126,19 @@ export default function EditarPerfilForm({ paciente, rol }: { paciente: Paciente
           onChange={(e) => handleChange("primer_nombre", e.target.value)}
           onBlur={(e) => validate("primer_nombre", e.target.value)}
         />
-        <Input
-          type="text"
-          label="Segundo Nombre"
-          name="segundo_nombre"
-          placeholder="Segundo Nombre"
-          required={false}
-          value={segundoNombre}
-          error={errors.segundo_nombre}
-          onChange={(e) => handleChange("segundo_nombre", e.target.value)}
-          onBlur={(e) => validate("segundo_nombre", e.target.value)}
-        />
+        {!esBasico && (
+          <Input
+            type="text"
+            label="Segundo Nombre"
+            name="segundo_nombre"
+            placeholder="Segundo Nombre"
+            required={false}
+            value={segundoNombre}
+            error={errors.segundo_nombre}
+            onChange={(e) => handleChange("segundo_nombre", e.target.value)}
+            onBlur={(e) => validate("segundo_nombre", e.target.value)}
+          />
+        )}
       </div>
 
       <div className="flex gap-3">
@@ -150,26 +153,30 @@ export default function EditarPerfilForm({ paciente, rol }: { paciente: Paciente
           onChange={(e) => handleChange("primer_apellido", e.target.value)}
           onBlur={(e) => validate("primer_apellido", e.target.value)}
         />
-        <Input
-          type="text"
-          label="Segundo Apellido"
-          name="segundo_apellido"
-          placeholder="Segundo Apellido"
-          required={false}
-          value={segundoApellido}
-          error={errors.segundo_apellido}
-          onChange={(e) => handleChange("segundo_apellido", e.target.value)}
-          onBlur={(e) => validate("segundo_apellido", e.target.value)}
-        />
+        {!esBasico && (
+          <Input
+            type="text"
+            label="Segundo Apellido"
+            name="segundo_apellido"
+            placeholder="Segundo Apellido"
+            required={false}
+            value={segundoApellido}
+            error={errors.segundo_apellido}
+            onChange={(e) => handleChange("segundo_apellido", e.target.value)}
+            onBlur={(e) => validate("segundo_apellido", e.target.value)}
+          />
+        )}
       </div>
 
       <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="block text-sm font-inter font-semibold text-clinica-accent">DNI</label>
-          <p className="w-full border border-gray-200 rounded-lg py-2 px-2 bg-gray-50 text-gray-500 text-sm">
-            {paciente.dni}
-          </p>
-        </div>
+        {!esBasico && (
+          <div className="flex-1">
+            <label className="block text-sm font-inter font-semibold text-clinica-accent">DNI</label>
+            <p className="w-full border border-gray-200 rounded-lg py-2 px-2 bg-gray-50 text-gray-500 text-sm">
+              {paciente.dni}
+            </p>
+          </div>
+        )}
         <Input
           type="text"
           label="Teléfono"
@@ -183,28 +190,32 @@ export default function EditarPerfilForm({ paciente, rol }: { paciente: Paciente
         />
       </div>
 
-      <Input
-        type="date"
-        label="Fecha de Nacimiento"
-        name="fecha_nacimiento"
-        placeholder=""
-        required={true}
-        value={fechaNacimiento}
-        error={errors.fecha_nacimiento}
-        onChange={(e) => handleChange("fecha_nacimiento", e.target.value)}
-        onBlur={(e) => validate("fecha_nacimiento", e.target.value)}
-      />
+      {!esBasico && (
+        <>
+          <Input
+            type="date"
+            label="Fecha de Nacimiento"
+            name="fecha_nacimiento"
+            placeholder=""
+            required={true}
+            value={fechaNacimiento}
+            error={errors.fecha_nacimiento}
+            onChange={(e) => handleChange("fecha_nacimiento", e.target.value)}
+            onBlur={(e) => validate("fecha_nacimiento", e.target.value)}
+          />
 
-      <Textarea
-        label="Dirección"
-        name="direccion"
-        placeholder="Col. Kennedy"
-        required={true}
-        value={direccion}
-        error={errors.direccion}
-        onChange={(e) => handleChange("direccion", e.target.value)}
-        onBlur={(e) => validate("direccion", e.target.value)}
-      />
+          <Textarea
+            label="Dirección"
+            name="direccion"
+            placeholder="Col. Kennedy"
+            required={true}
+            value={direccion}
+            error={errors.direccion}
+            onChange={(e) => handleChange("direccion", e.target.value)}
+            onBlur={(e) => validate("direccion", e.target.value)}
+          />
+        </>
+      )}
 
       <div className="flex gap-3">
         {esPaciente && (
