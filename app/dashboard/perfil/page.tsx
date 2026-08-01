@@ -101,7 +101,7 @@ export default async function PerfilPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar activePath="/dashboard/perfil" />
+      {perfil.rol !== "paciente" && <Sidebar activePath="/dashboard/perfil" />}
 
       <div className="flex-1">
         <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center gap-4">
