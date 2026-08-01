@@ -18,7 +18,7 @@ const menuItems = [
 
 const roleMenu: Record<string, string[]> = {
     admin: ["Panel de Control", "Citas", "Pacientes", "Odontólogos", "Especialidades", "Jornadas", "Personal", "Inventario", "Facturación"],
-    recepcionista: ["Panel de Control", "Citas", "Pacientes", "Odontólogos", "Facturación", "Inventario"],
+    recepcionista: ["Panel de Control", "Citas", "Pacientes", "Odontólogos", "Personal", "Facturación", "Inventario"],
     doctor: ["Panel de Control", "Citas", "Pacientes", "Personal"],
     paciente: ["Panel de Control", "Citas"],
 };
@@ -71,10 +71,12 @@ return (
             <UserCircle size={20} />
             Mi Perfil
         </Link>
-        <Link href="/dashboard/configuracion" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 font-sans font-medium hover:bg-gray-100 mb-1">
+        {rol === "admin" && (
+          <Link href="/dashboard/configuracion" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 font-sans font-medium hover:bg-gray-100 mb-1">
             <Settings size={20} />
             Configuración
-        </Link>
+          </Link>
+        )}
         <Link href="/dashboard/soporte" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 font-sans font-medium hover:bg-gray-100">
             <HelpCircle size={20} />
             Soporte

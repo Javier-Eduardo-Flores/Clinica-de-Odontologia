@@ -296,31 +296,40 @@ export async function actualizarMiPerfil(
   const direccion = (formData.get("direccion") as string) || "";
   const genero = formData.get("genero") as string;
 
-  if (!primer_nombre || !primer_apellido || !telefono || !fecha_nacimiento) {
+  const esBasico = perfil.rol === "admin" || perfil.rol === "recepcionista";
+
+  if (
+    !primer_nombre ||
+    !primer_apellido ||
+    !telefono ||
+    (!esBasico && !fecha_nacimiento)
+  ) {
     return { error: "Completa todos los campos obligatorios." };
   }
 
   const ePNombre = validateName(primer_nombre, true);
   if (ePNombre) return { error: `Primer nombre: ${ePNombre}` };
 
-  const eSNombre = validateName(segundo_nombre, false);
-  if (eSNombre) return { error: `Segundo nombre: ${eSNombre}` };
-
   const ePApellido = validateApellido(primer_apellido, true);
   if (ePApellido) return { error: `Primer apellido: ${ePApellido}` };
-
-  const eSApellido = validateApellido(segundo_apellido, false);
-  if (eSApellido) return { error: `Segundo apellido: ${eSApellido}` };
 
   const eTel = validateTelefono(telefono);
   if (eTel) return { error: `Teléfono: ${eTel}` };
 
-  const eFecha = validateFechaNacimiento(fecha_nacimiento);
-  if (eFecha) return { error: eFecha };
+  if (!esBasico) {
+    const eSNombre = validateName(segundo_nombre, false);
+    if (eSNombre) return { error: `Segundo nombre: ${eSNombre}` };
 
-  if (direccion) {
-    const eDir = validateDireccion(direccion);
-    if (eDir) return { error: `Dirección: ${eDir}` };
+    const eSApellido = validateApellido(segundo_apellido, false);
+    if (eSApellido) return { error: `Segundo apellido: ${eSApellido}` };
+
+    const eFecha = validateFechaNacimiento(fecha_nacimiento);
+    if (eFecha) return { error: eFecha };
+
+    if (direccion) {
+      const eDir = validateDireccion(direccion);
+      if (eDir) return { error: `Dirección: ${eDir}` };
+    }
   }
 
   const { error: errorProfile } = await supabase

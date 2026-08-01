@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 import Sidebar from "@/app/components/sidebar";
 import ToggleSwitch from "@/app/components/toggleswitch";
 import DescuentoForm from "@/app/components/descuentoform";
@@ -6,6 +7,21 @@ import MetodoPagoForm from "@/app/components/metodopagoform";
 
 export default async function ConfiguracionPage() {
     const supabase = await createClient();
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
+
+    const { data: perfil } = await supabase
+        .from("profiles")
+        .select("rol")
+        .eq("id_profile", user.id)
+        .maybeSingle();
+
+    if (!perfil || perfil.rol !== "admin") {
+        redirect("/dashboard");
+    }
 
     const { data: metodosPago } = await supabase.from("metodo_pago").select("id_metodo_pago, nombre, activo");
     const { data: descuentos } = await supabase
