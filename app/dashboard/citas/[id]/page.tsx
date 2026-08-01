@@ -46,22 +46,15 @@ export default async function CitaDetallePage({
     redirect("/dashboard");
   }
 
-  // Agregamos odontologos a la consulta para traer el nombre del doctor asignado
-  const { data: cita } = await supabase
-    .from("citas")
-    .select(
-<<<<<<< HEAD
-      `id_cita, fecha_cita, motivo, estado,
-      pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento )`
-=======
-      `id_cita, fecha_cita, motivo, estado, id_odontologo,
-       pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento ),
-       odontologos ( primer_nombre, primer_apellido )`
->>>>>>> 231f0012ad3b8f2c84fc8b2d23d3e0a6c2abd877
-    )
-    .eq("id_cita", id)
-    .maybeSingle();
-
+const { data: cita } = await supabase
+  .from("citas")
+  .select(`
+    id_cita, fecha_cita, motivo, estado,
+    pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento ),
+    odontologos ( primer_nombre, primer_apellido )
+  `)
+  .eq("id_cita", id)
+  .maybeSingle();
   if (!cita) notFound();
 
   const paciente = Array.isArray(cita.pacientes) ? cita.pacientes[0] : cita.pacientes;
