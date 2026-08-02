@@ -35,28 +35,10 @@ const menuItems = [
 ];
 
 const roleMenu: Record<string, string[]> = {
-  admin: [
-    'Panel de Control',
-    'Citas',
-    'Pacientes',
-    'Odontólogos',
-    'Especialidades',
-    'Jornadas',
-    'Personal',
-    'Inventario',
-    'Facturación',
-  ],
-  recepcionista: [
-    'Panel de Control',
-    'Citas',
-    'Pacientes',
-    'Odontólogos',
-    'Personal',
-    'Facturación',
-    'Inventario',
-  ],
-  doctor: ['Panel de Control', 'Citas', 'Pacientes', 'Personal'],
-  paciente: ['Panel de Control', 'Citas'],
+    admin: ["Panel de Control", "Citas", "Pacientes", "Odontólogos", "Especialidades", "Jornadas", "Personal", "Inventario", "Facturación"],
+    recepcionista: ["Panel de Control", "Citas", "Pacientes", "Odontólogos", "Personal", "Facturación", "Inventario"],
+    doctor: ["Panel de Control", "Citas", "Pacientes"],
+    paciente: ["Panel de Control", "Citas"],
 };
 
 export default async function Sidebar({ activePath }: { activePath: string }) {

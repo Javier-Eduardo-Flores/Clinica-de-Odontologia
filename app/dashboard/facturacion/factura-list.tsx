@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   crearFactura,
   actualizarEstadoFactura,
@@ -25,6 +25,8 @@ import {
   Trash,
   Check,
 } from "lucide-react";
+
+type Perfil = { nombre: string; apellido: string; rol: string };
 
 type Factura = {
   id_factura: string;
@@ -68,6 +70,7 @@ const ESTADO_BADGE: Record<number, { label: string; classes: string }> = {
 };
 
 export default function FacturaList({
+  perfil,
   facturas,
   pacientes,
   tratamientos,
@@ -81,6 +84,7 @@ export default function FacturaList({
   facturasPagadas,
   dbErrors,
 }: {
+  perfil: Perfil;
   facturas: Factura[];
   pacientes: Paciente[];
   tratamientos: Tratamiento[];
@@ -96,7 +100,10 @@ export default function FacturaList({
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [pagoModal, setPagoModal] = useState<Factura | null>(null);
-  const [detalleOpen, setDetalleOpen] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [detalleOpen, setDetalleOpen] = useState<string | null>(
+    searchParams.get("factura")
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<number | "">("");
 
@@ -119,7 +126,9 @@ export default function FacturaList({
   const facturasFiltradas = facturas.filter((f) => {
     const p = buscarPaciente(f.id_paciente);
     const nombre = p ? `${p.primer_nombre} ${p.primer_apellido}`.toLowerCase() : "";
-    const matchSearch = nombre.includes(searchTerm.toLowerCase());
+    const noFactura = (f.no_factura || "").toLowerCase();
+    const termino = searchTerm.toLowerCase();
+    const matchSearch = nombre.includes(termino) || noFactura.includes(termino);
     const matchEstado = estadoFilter === "" || f.estado === estadoFilter;
     return matchSearch && matchEstado;
   });
@@ -136,6 +145,26 @@ export default function FacturaList({
 
   return (
     <>
+      <div className="flex items-center gap-4 mb-6 -mt-2">
+        <div className="relative flex-1 max-w-xl">
+          <Search size={20} className="absolute left-3 top-2.5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar por paciente o No. de factura..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-right">
+            <p className="text-sm font-sans font-semibold text-gray-900">{perfil.nombre} {perfil.apellido}</p>
+            <p className="text-xs text-gray-400 capitalize">{perfil.rol}</p>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-gray-200" />
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-sans font-bold text-gray-900">Facturación</h1>
@@ -185,16 +214,6 @@ export default function FacturaList({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-sans font-bold text-gray-900">Todas las Facturas</h2>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar paciente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark w-48"
-              />
-            </div>
             <div className="relative">
               <select
                 value={estadoFilter}
@@ -303,19 +322,21 @@ export default function FacturaList({
                             </button>
                           </>
                         )}
-                        <button
-                          onClick={async () => {
-                            if (confirm("¿Está seguro de eliminar esta factura?")) {
-                              const res = await eliminarFactura(f.id_factura);
-                              if (res?.error) alert(res.error);
-                              router.refresh();
-                            }
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {f.estado !== 2 && (
+                          <button
+                            onClick={async () => {
+                              if (confirm("¿Está seguro de eliminar esta factura?")) {
+                                const res = await eliminarFactura(f.id_factura);
+                                if (res?.error) alert(res.error);
+                                router.refresh();
+                              }
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -340,7 +361,8 @@ export default function FacturaList({
       )}
 
       {detalleOpen && (() => {
-        const f = facturas.find((f) => f.id_factura === detalleOpen)!;
+        const f = facturas.find((f) => f.id_factura === detalleOpen);
+        if (!f) return null;
         return (
           <DetalleModal
             factura={f}

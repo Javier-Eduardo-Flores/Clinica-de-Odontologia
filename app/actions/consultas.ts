@@ -196,6 +196,37 @@ export async function completarCitaCompleta(data: {
 }) {
     const supabase = await createClient();
 
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Debes iniciar sesión." };
+
+    const { data: perfil } = await supabase
+        .from("profiles")
+        .select("rol")
+        .eq("id_profile", user.id)
+        .maybeSingle();
+
+    if (!perfil || perfil.rol !== "doctor") {
+        return { error: "Solo un odontólogo puede completar una cita." };
+    }
+
+    const { data: cita } = await supabase
+        .from("citas")
+        .select("id_odontologo, estado")
+        .eq("id_cita", data.id_cita)
+        .maybeSingle();
+
+    if (!cita || cita.id_odontologo !== user.id) {
+        return { error: "Solo el odontólogo asignado a esta cita puede completarla." };
+    }
+    if (cita.estado !== 1 && cita.estado !== 2) {
+        return { error: "Esta cita ya no está pendiente ni confirmada." };
+    }
+
+    // Usamos siempre el odontólogo autenticado y verificado, no el que venga del cliente.
+    data.id_odontologo = user.id;
+
     if (!data.diagnostico?.trim()) {
         return { error: "El diagnóstico es obligatorio" };
     }

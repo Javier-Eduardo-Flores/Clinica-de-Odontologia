@@ -262,6 +262,18 @@ export async function eliminarFactura(idFactura: string): Promise<FacturaState> 
   } = await supabase.auth.getUser();
   if (!user) return { error: "No autorizado" };
 
+  const { data: factura, error: errFactura } = await supabase
+    .from("factura")
+    .select("estado")
+    .eq("id_factura", idFactura)
+    .maybeSingle();
+
+  if (errFactura) return { error: errFactura.message };
+  if (!factura) return { error: "La factura no existe." };
+  if (factura.estado === 2) {
+    return { error: "No se puede eliminar una factura que ya fue pagada." };
+  }
+
   const { error: errDetalles } = await supabase
     .from("detalle_factura")
     .delete()

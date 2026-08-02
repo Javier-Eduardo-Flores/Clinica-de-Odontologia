@@ -49,13 +49,18 @@ export default async function CitaDetallePage({
 const { data: cita } = await supabase
   .from("citas")
   .select(`
-    id_cita, fecha_cita, motivo, estado,
+    id_cita, fecha_cita, motivo, estado, id_odontologo,
     pacientes!fk_id_usuario ( id_paciente, primer_nombre, primer_apellido, correo, telefono, dni, fecha_nacimiento ),
     odontologos ( primer_nombre, primer_apellido )
   `)
   .eq("id_cita", id)
   .maybeSingle();
   if (!cita) notFound();
+
+  // Un doctor solo puede ver el detalle de las citas que tiene asignadas.
+  if (perfil.rol === "doctor" && cita.id_odontologo !== user.id) {
+    redirect("/dashboard/citas");
+  }
 
   const paciente = Array.isArray(cita.pacientes) ? cita.pacientes[0] : cita.pacientes;
   const doctor = Array.isArray(cita.odontologos) ? cita.odontologos[0] : cita.odontologos;
@@ -93,7 +98,8 @@ const { data: cita } = await supabase
     catalogoEstados = estadosData ?? [];
   }
 
-  const puedeCompletar = perfil.rol === "doctor" && esPendienteOConfirmada;
+  const puedeCompletar =
+    perfil.rol === "doctor" && cita.id_odontologo === user.id && esPendienteOConfirmada;
 
   
 
