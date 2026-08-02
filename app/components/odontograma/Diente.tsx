@@ -13,12 +13,12 @@ const TOOTH_PATH =
 
 export function Diente({
   diente,
-  seleccionado,
-  onSeleccionar,
+  seleccionado = false,
+  onSeleccionar = () => {},
 }: {
   diente: DienteConEstado;
-  seleccionado: boolean;
-  onSeleccionar: (diente: DienteConEstado) => void;
+  seleccionado?: boolean;
+  onSeleccionar?: (diente: DienteConEstado) => void;
 }) {
   const { x, y } = calcularPosicion(diente.cuadrante, diente.posicion);
 
