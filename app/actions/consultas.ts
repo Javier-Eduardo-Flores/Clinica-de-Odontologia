@@ -286,6 +286,11 @@ export async function completarCitaCompleta(data: {
                 : Promise.resolve({ data: [] as { id_producto: string; precio: number }[] }),
         ]);
 
+        console.log("[FACTURA-DEBUG] idsTratamiento:", idsTratamiento);
+        console.log("[FACTURA-DEBUG] preciosTratamientos recibidos:", preciosTratamientos);
+        console.log("[FACTURA-DEBUG] idsProducto:", idsProducto);
+        console.log("[FACTURA-DEBUG] preciosProductos recibidos:", preciosProductos);
+
         const mapaPreciosTratamiento = new Map((preciosTratamientos ?? []).map((t) => [t.id_tratamiento, Number(t.precio)]));
         const mapaPreciosProducto = new Map((preciosProductos ?? []).map((p) => [p.id_producto, Number(p.precio)]));
 
@@ -326,20 +331,26 @@ export async function completarCitaCompleta(data: {
         }
         const noFactura = `${prefix}${String(siguienteCorrelativo).padStart(8, "0")}`;
 
+        const payloadFactura = {
+            id_paciente: data.id_paciente,
+            fecha: new Date().toISOString().slice(0, 10),
+            subtotal: Number(subtotal.toFixed(2)),
+            impuestos,
+            total,
+            tipo_documento: tipoDocumento,
+            no_factura: noFactura,
+            estado: 1, // Pendiente de pago
+        };
+        console.log("[FACTURA-DEBUG] payload que se va a insertar en factura:", payloadFactura);
+
         const { data: nuevaFactura, error: errorFactura } = await supabase
             .from("factura")
-            .insert({
-                id_paciente: data.id_paciente,
-                fecha: new Date().toISOString().slice(0, 10),
-                subtotal: Number(subtotal.toFixed(2)),
-                impuestos,
-                total,
-                tipo_documento: tipoDocumento,
-                no_factura: noFactura,
-                estado: 1, // Pendiente de pago
-            })
-            .select("id_factura")
+            .insert(payloadFactura)
+            .select("id_factura, subtotal, impuestos, total")
             .single();
+
+        console.log("[FACTURA-DEBUG] resultado del INSERT (lo que realmente quedó guardado):", nuevaFactura);
+        console.log("[FACTURA-DEBUG] error del INSERT (si hubo):", errorFactura);
 
         if (errorFactura) {
             console.error("Error al crear la factura:", errorFactura.message);

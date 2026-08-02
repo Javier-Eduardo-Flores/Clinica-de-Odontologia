@@ -13,6 +13,8 @@ import {
 import {
   Receipt,
   BanknoteArrowUp,
+  Banknote,
+  CreditCard,
   Eye,
   Pencil,
   Trash2,
@@ -354,6 +356,7 @@ export default function FacturaList({
         <PagoModal
           factura={pagoModal}
           metodosPago={metodosPago}
+          descuentos={descuentos}
           pagosPorFactura={pagosPorFactura}
           onClose={() => setPagoModal(null)}
         />
@@ -365,11 +368,13 @@ export default function FacturaList({
 function PagoModal({
   factura,
   metodosPago,
+  descuentos,
   pagosPorFactura,
   onClose,
 }: {
   factura: Factura;
   metodosPago: MetodoPago[];
+  descuentos: Descuento[];
   pagosPorFactura: Record<string, number>;
   onClose: () => void;
 }) {
@@ -377,6 +382,32 @@ function PagoModal({
   const pendiente = Math.max(0, Number(factura.total) - pagado);
   const [pagoState, pagoAction, pagoPending] = useActionState<PagoState, FormData>(registrarPago, null);
   const router = useRouter();
+
+  const [idMetodoPago, setIdMetodoPago] = useState("");
+  const [idDescuento, setIdDescuento] = useState("");
+  const [monto, setMonto] = useState("");
+  const [montoTocado, setMontoTocado] = useState(false);
+
+  const metodoSeleccionado = metodosPago.find((m) => m.id_metodo_pago === idMetodoPago);
+  const esTarjetaCredito = (metodoSeleccionado?.nombre ?? "").toLowerCase().includes("tarjeta");
+
+  const descuentoSeleccionado = descuentos.find((d) => d.id_descuento === idDescuento);
+  const montoDescuento = descuentoSeleccionado
+    ? Math.min(
+        pendiente,
+        descuentoSeleccionado.tipo === "%"
+          ? (pendiente * Number(descuentoSeleccionado.valor)) / 100
+          : Number(descuentoSeleccionado.valor)
+      )
+    : 0;
+  const pendienteConDescuento = Math.max(0, pendiente - montoDescuento);
+
+  // Sugiere el monto a pagar (saldo con descuento) mientras el usuario no lo edite manualmente
+  useEffect(() => {
+    if (!montoTocado) {
+      setMonto(pendienteConDescuento > 0 ? pendienteConDescuento.toFixed(2) : "");
+    }
+  }, [pendienteConDescuento, montoTocado]);
 
   useEffect(() => {
     if (pagoState?.success) {
@@ -387,14 +418,14 @@ function PagoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 relative">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 relative max-h-[90vh] overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 cursor-pointer">
           <X size={20} />
         </button>
 
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-600"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            <Banknote size={20} className="text-green-600" />
           </div>
           <div>
             <h3 className="text-xl font-sans font-bold text-gray-900">Registrar Pago</h3>
@@ -409,6 +440,7 @@ function PagoModal({
 
         <form action={pagoAction} className="flex flex-col gap-4">
           <input type="hidden" name="id_factura" value={factura.id_factura} />
+          <input type="hidden" name="id_descuento" value={idDescuento} />
 
           {pagoState?.error && (
             <p className="text-red-500 text-sm font-sans text-center bg-red-50 rounded-lg py-2">{pagoState.error}</p>
@@ -419,12 +451,96 @@ function PagoModal({
             <select
               name="id_metodo_pago"
               required
-              defaultValue=""
+              value={idMetodoPago}
+              onChange={(e) => setIdMetodoPago(e.target.value)}
               className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
             >
               <option value="">Seleccione un método</option>
               {metodosPago.map((m) => (
                 <option key={m.id_metodo_pago} value={m.id_metodo_pago}>{m.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          {esTarjetaCredito && (
+            <div className="border border-gray-200 rounded-lg p-3 flex flex-col gap-3 bg-gray-50">
+              <div className="flex items-center gap-2 text-sm font-inter font-semibold text-clinica-accent">
+                <CreditCard size={16} />
+                Datos de la tarjeta
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-gray-500 mb-1">Número de tarjeta</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="cc-number"
+                  placeholder="0000 0000 0000 0000"
+                  maxLength={19}
+                  className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+                  onChange={(e) => {
+                    // formatea en grupos de 4 solo para mostrar en pantalla
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 16);
+                    e.target.value = digits.replace(/(.{4})/g, "$1 ").trim();
+                  }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-sans text-gray-500 mb-1">Nombre en la tarjeta</label>
+                <input
+                  type="text"
+                  autoComplete="cc-name"
+                  placeholder="Como aparece en la tarjeta"
+                  className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+                />
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-sans text-gray-500 mb-1">Vencimiento</label>
+                  <input
+                    type="text"
+                    autoComplete="cc-exp"
+                    placeholder="MM/AA"
+                    maxLength={5}
+                    className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      e.target.value = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+                    }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-sans text-gray-500 mb-1">CVV</label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
+                    placeholder="•••"
+                    maxLength={4}
+                    className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400 font-sans leading-snug">
+                Por seguridad, el número completo y el CVV no se guardan. Solo se registra una referencia con los
+                últimos 4 dígitos.
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">
+              Descuento <span className="text-gray-400 font-normal">(opcional)</span>
+            </label>
+            <select
+              value={idDescuento}
+              onChange={(e) => setIdDescuento(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
+            >
+              <option value="">Sin descuento</option>
+              {descuentos.map((d) => (
+                <option key={d.id_descuento} value={d.id_descuento}>
+                  {d.nombre} ({d.tipo === "%" ? `${d.valor}%` : `L. ${d.valor}`})
+                </option>
               ))}
             </select>
           </div>
@@ -438,10 +554,22 @@ function PagoModal({
               <span className="text-gray-600">Ya pagado</span>
               <span className="font-semibold text-green-600">L. {pagado.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
             </div>
-            <div className="flex justify-between text-sm font-sans mt-1 pt-1 border-t border-blue-200">
+            <div className="flex justify-between text-sm font-sans mt-1">
               <span className="font-semibold text-gray-700">Saldo pendiente</span>
               <span className="font-bold text-amber-600">L. {pendiente.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
             </div>
+            {montoDescuento > 0 && (
+              <>
+                <div className="flex justify-between text-sm font-sans mt-1 text-green-600">
+                  <span>Descuento ({descuentoSeleccionado?.nombre})</span>
+                  <span>- L. {montoDescuento.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-sm font-sans mt-1 pt-1 border-t border-blue-200">
+                  <span className="font-semibold text-gray-700">Saldo con descuento</span>
+                  <span className="font-bold text-clinica-dark">L. {pendienteConDescuento.toLocaleString("es", { minimumFractionDigits: 2 })}</span>
+                </div>
+              </>
+            )}
           </div>
           <div>
             <label className="block text-sm font-inter font-semibold text-clinica-accent mb-1">Monto a pagar</label>
@@ -450,9 +578,14 @@ function PagoModal({
               name="monto"
               step="0.01"
               min="0.01"
-              max={pendiente}
+              max={pendienteConDescuento || pendiente}
               required
               placeholder="0.00"
+              value={monto}
+              onChange={(e) => {
+                setMontoTocado(true);
+                setMonto(e.target.value);
+              }}
               className="w-full border border-gray-300 rounded-lg py-2 px-2 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
             />
           </div>

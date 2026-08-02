@@ -1,8 +1,9 @@
 // app/components/citas/CitaForm.tsx
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { agendarCita } from "@/app/actions/citas";
+import { obtenerHorasDisponibles } from "@/app/actions/horarios";
 import { Calendar, Clock, Stethoscope, UserCircle } from "lucide-react";
 
 interface Tratamiento {
@@ -31,9 +32,15 @@ interface Props {
 
 export default function CitaForm({ tratamientos, odontologos }: Props) {
   const [state, formAction, pending] = useActionState(agendarCita, null);
-  
-  // Ahora el estado guarda el tratamiento seleccionado primero
+
+  const [fecha, setFecha] = useState("");
   const [tratamientoSeleccionado, setTratamientoSeleccionado] = useState<string>("");
+  const [odontologoSeleccionado, setOdontologoSeleccionado] = useState<string>("");
+  const [hora, setHora] = useState<string>("");
+
+  const [horasDisponibles, setHorasDisponibles] = useState<string[]>([]);
+  const [mensajeHorario, setMensajeHorario] = useState<string>("");
+  const [cargandoHoras, startTransition] = useTransition();
 
   const hoy = new Date().toISOString().split("T")[0];
 
@@ -44,10 +51,50 @@ export default function CitaForm({ tratamientos, odontologos }: Props) {
   const odontologosFiltrados = tratamientoActual
     ? tratamientoActual.id_especialidad === null
       ? odontologos // Si es un tratamiento general (sin especialidad), lo puede hacer cualquier doctor
-      : odontologos.filter(doc => 
+      : odontologos.filter(doc =>
           doc.especialidades.some(e => e.id_especialidad === tratamientoActual.id_especialidad)
         )
     : []; // Si no ha elegido tratamiento, no muestra doctores
+
+  // Si cambia el tratamiento y el odontólogo elegido ya no aplica, lo reseteamos
+  useEffect(() => {
+    setOdontologoSeleccionado((actual) =>
+      actual && !odontologosFiltrados.some((o) => o.id_odontologo === actual) ? "" : actual
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tratamientoSeleccionado]);
+
+  // Cada vez que cambia la fecha o el odontólogo, recalculamos las horas
+  // disponibles según su jornada laboral y sus citas ya agendadas.
+  useEffect(() => {
+    setHora("");
+
+    if (!fecha || !odontologoSeleccionado) {
+      setHorasDisponibles([]);
+      setMensajeHorario("");
+      return;
+    }
+
+    let cancelado = false;
+
+    startTransition(async () => {
+      const res = await obtenerHorasDisponibles(odontologoSeleccionado, fecha);
+      if (cancelado) return;
+
+      if ("error" in res) {
+        setHorasDisponibles([]);
+        setMensajeHorario(res.error);
+        return;
+      }
+
+      setHorasDisponibles(res.horas);
+      setMensajeHorario(res.mensaje);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [fecha, odontologoSeleccionado]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -67,22 +114,8 @@ export default function CitaForm({ tratamientos, odontologos }: Props) {
             type="date"
             required
             min={hoy}
-            className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-sans font-semibold text-gray-700 mb-1" htmlFor="hora">
-          Hora
-        </label>
-        <div className="relative">
-          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            id="hora"
-            name="hora"
-            type="time"
-            required
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
             className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark"
           />
         </div>
@@ -124,13 +157,14 @@ export default function CitaForm({ tratamientos, odontologos }: Props) {
             id="id_odontologo"
             name="id_odontologo"
             required
-            defaultValue=""
-            disabled={!tratamientoSeleccionado} 
+            value={odontologoSeleccionado}
+            onChange={(e) => setOdontologoSeleccionado(e.target.value)}
+            disabled={!tratamientoSeleccionado}
             className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark appearance-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
           >
             <option value="" disabled>
-              {!tratamientoSeleccionado 
-                ? "Primero selecciona un tratamiento" 
+              {!tratamientoSeleccionado
+                ? "Primero selecciona un tratamiento"
                 : "Selecciona un odontólogo"}
             </option>
             {odontologosFiltrados.map((o) => (
@@ -146,9 +180,45 @@ export default function CitaForm({ tratamientos, odontologos }: Props) {
         )}
       </div>
 
+      {/* 3. TERCERO: Hora, limitada a la jornada del odontólogo ese día */}
+      <div>
+        <label className="block text-sm font-sans font-semibold text-gray-700 mb-1" htmlFor="hora">
+          Hora
+        </label>
+        <div className="relative">
+          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select
+            id="hora"
+            name="hora"
+            required
+            value={hora}
+            onChange={(e) => setHora(e.target.value)}
+            disabled={!fecha || !odontologoSeleccionado || cargandoHoras || horasDisponibles.length === 0}
+            className="w-full border border-gray-300 rounded-lg py-2 pl-10 pr-3 font-sans focus:outline-none focus:ring-2 focus:ring-clinica-dark appearance-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+          >
+            <option value="" disabled>
+              {!fecha || !odontologoSeleccionado
+                ? "Selecciona fecha y odontólogo primero"
+                : cargandoHoras
+                ? "Buscando horas disponibles..."
+                : horasDisponibles.length === 0
+                ? "Sin horas disponibles"
+                : "Selecciona una hora"}
+            </option>
+            {horasDisponibles.map((h) => (
+              <option key={h} value={h}>{h}</option>
+            ))}
+          </select>
+        </div>
+
+        {mensajeHorario && !cargandoHoras && (
+          <p className="text-orange-500 text-xs mt-1">{mensajeHorario}</p>
+        )}
+      </div>
+
       <button
         type="submit"
-        disabled={pending || !tratamientoSeleccionado || odontologosFiltrados.length === 0}
+        disabled={pending || !tratamientoSeleccionado || !odontologoSeleccionado || !hora}
         className="font-sans font-bold bg-clinica-dark text-white py-3 rounded-lg disabled:opacity-50 hover:bg-clinica-medium transition-colors mt-2"
       >
         {pending ? "Agendando..." : "Confirmar Cita"}

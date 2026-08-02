@@ -158,20 +158,70 @@ export async function registrarPago(
 
   const idFactura = formData.get("id_factura") as string;
   const idMetodoPago = formData.get("id_metodo_pago") as string;
+  const idDescuento = (formData.get("id_descuento") as string) || "";
   const monto = parseFloat(formData.get("monto") as string) || 0;
   const referencia = (formData.get("referencia") as string) || "";
-  const observaciones = (formData.get("observaciones") as string) || "";
+  let observaciones = (formData.get("observaciones") as string) || "";
 
   if (!idMetodoPago) return { error: "Seleccione un método de pago" };
   if (monto <= 0) return { error: "Ingrese un monto válido" };
 
   const { data: factura, error: errFact } = await supabase
     .from("factura")
-    .select("id_paciente, total, estado")
+    .select("id_paciente, total, descuento, estado")
     .eq("id_factura", idFactura)
     .single();
 
   if (errFact || !factura) return { error: "Factura no encontrada" };
+
+  // Saldo pendiente real (antes de este pago), calculado con lo ya abonado
+  const { data: pagosPrevios } = await supabase
+    .from("pagos")
+    .select("monto")
+    .eq("id_factura", idFactura);
+
+  const pagadoPrevio = pagosPrevios?.reduce((s, p) => s + Number(p.monto), 0) ?? 0;
+  const pendienteActual = Math.max(0, Number(factura.total) - pagadoPrevio);
+
+  let totalFacturaActualizado = Number(factura.total);
+
+  // Si se seleccionó un descuento, se valida contra la base de datos (nunca se confía
+  // en el monto calculado en el navegador) y se descuenta del TOTAL de la factura
+  // (columna que ya existe para eso: subtotal + impuestos - descuento = total),
+  // para que el saldo pendiente refleje el descuento de aquí en adelante.
+  if (idDescuento) {
+    const { data: descuento, error: errDescuento } = await supabase
+      .from("descuento")
+      .select("nombre, tipo, valor, activo")
+      .eq("id_descuento", idDescuento)
+      .single();
+
+    if (errDescuento || !descuento || !descuento.activo) {
+      return { error: "El descuento seleccionado no es válido" };
+    }
+
+    const montoDescuento = Math.min(
+      pendienteActual,
+      descuento.tipo === "%"
+        ? (pendienteActual * Number(descuento.valor)) / 100
+        : Number(descuento.valor)
+    );
+
+    totalFacturaActualizado = Number(factura.total) - montoDescuento;
+
+    const { error: errFacturaUpdate } = await supabase
+      .from("factura")
+      .update({
+        total: totalFacturaActualizado,
+        descuento: Number(factura.descuento) + montoDescuento,
+      })
+      .eq("id_factura", idFactura);
+
+    if (errFacturaUpdate) return { error: errFacturaUpdate.message };
+
+    const nota = `[Descuento aplicado: ${descuento.nombre} (${descuento.tipo === "%" ? `${descuento.valor}%` : `L. ${descuento.valor}`}) = -L. ${montoDescuento.toFixed(2)}]`;
+    observaciones = observaciones ? `${nota} ${observaciones}` : nota;
+  }
 
   const { error: errPago } = await supabase.from("pagos").insert({
     id_factura: idFactura,
@@ -191,7 +241,7 @@ export async function registrarPago(
     .eq("id_factura", idFactura);
 
   const totalPagado = pagos?.reduce((s, p) => s + Number(p.monto), 0) ?? 0;
-  const nuevoEstado = totalPagado >= Number(factura.total) ? 2 : 1;
+  const nuevoEstado = totalPagado >= totalFacturaActualizado ? 2 : 1;
 
   const { error: errUpdate } = await supabase
     .from("factura")
