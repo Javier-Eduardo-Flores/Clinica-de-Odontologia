@@ -4,6 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { obtenerHorasDisponibles } from "@/app/actions/horarios";
 
 export type CitaState = { error: string } | { success: boolean } | null;
@@ -100,6 +101,108 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
 }
 
 /**
+ * Agenda una cita en nombre de un paciente. Solo admin y recepcionista pueden usarla.
+ */
+export async function agendarCitaStaff(prevState: CitaState, formData: FormData): Promise<CitaState> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("rol")
+    .eq("id_profile", user.id)
+    .maybeSingle();
+
+  if (!perfil || !["admin", "recepcionista"].includes(perfil.rol)) {
+    return { error: "No tienes permiso para agendar citas a nombre de un paciente." };
+  }
+
+  const id_paciente = formData.get("id_paciente") as string;
+  const fecha = formData.get("fecha") as string;
+  const hora = formData.get("hora") as string;
+  const id_tratamiento = formData.get("id_tratamiento") as string;
+  const id_odontologo = formData.get("id_odontologo") as string;
+
+  if (!id_paciente || !fecha || !hora || !id_tratamiento || !id_odontologo) {
+    return { error: "Completa todos los campos, incluyendo el paciente y el odontólogo." };
+  }
+
+  const fechaCita = new Date(`${fecha}T${hora}:00`);
+
+  if (isNaN(fechaCita.getTime())) {
+    return { error: "Fecha u hora inválida." };
+  }
+
+  if (fechaCita.getTime() <= Date.now()) {
+    return { error: "Elige una fecha y hora futura." };
+  }
+
+  const fechaIso = fechaCita.toISOString();
+
+  // 1. VALIDACIÓN: el paciente no puede tener otra cita a la misma hora exacta.
+  const { data: citasPaciente } = await supabase
+    .from("citas")
+    .select("id_cita")
+    .eq("id_usuario", id_paciente)
+    .in("estado", [1, 2])
+    .eq("fecha_cita", fechaIso);
+
+  if (citasPaciente && citasPaciente.length > 0) {
+    return { error: "El paciente ya tiene una cita agendada para esta misma fecha y hora." };
+  }
+
+  // 2. VALIDACIÓN: la hora debe estar dentro de la jornada del odontólogo ese día,
+  //    y respetar al menos 30 minutos de diferencia con sus otras citas.
+  const disponibilidad = await obtenerHorasDisponibles(id_odontologo, fecha);
+
+  if ("error" in disponibilidad) {
+    return { error: disponibilidad.error };
+  }
+  if (!disponibilidad.atiende) {
+    return { error: disponibilidad.mensaje || "El odontólogo no atiende ese día." };
+  }
+  if (!disponibilidad.horas.includes(hora)) {
+    return {
+      error: "Esa hora no está disponible: está fuera de la jornada del odontólogo o ya está ocupada (debe haber al menos 30 min de diferencia).",
+    };
+  }
+
+  const { data: tratamiento } = await supabase
+    .from("tratamiento")
+    .select("nombre")
+    .eq("id_tratamiento", id_tratamiento)
+    .maybeSingle();
+
+  if (!tratamiento) {
+    return { error: "Selecciona un tratamiento válido." };
+  }
+
+  const { error } = await createAdminClient().from("citas").insert({
+    id_usuario: id_paciente,
+    fecha_cita: fechaIso,
+    motivo: tratamiento.nombre,
+    id_tratamiento,
+    id_odontologo,
+    estado: 1, // Pendiente
+  });
+
+  if (error) {
+    return { error: "No se pudo agendar la cita: " + error.message };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/citas");
+  redirect("/dashboard/citas");
+}
+
+/**
  * Confirma una cita PENDIENTE (usado por doctor/recepcionista/admin).
  */
 export async function confirmarCitaStaff(formData: FormData) {
@@ -112,6 +215,30 @@ export async function confirmarCitaStaff(formData: FormData) {
 
   const id_cita = formData.get("id_cita") as string;
   if (!id_cita) return;
+
+  const { data: perfil } = await supabase
+    .from("profiles")
+    .select("rol")
+    .eq("id_profile", user.id)
+    .maybeSingle();
+
+  if (!perfil || !["admin", "doctor", "recepcionista"].includes(perfil.rol)) {
+    return;
+  }
+
+  // Si es doctor, solo puede confirmar la cita si es el odontólogo asignado.
+  if (perfil.rol === "doctor") {
+    const { data: cita } = await supabase
+      .from("citas")
+      .select("id_odontologo")
+      .eq("id_cita", id_cita)
+      .maybeSingle();
+
+    if (!cita || cita.id_odontologo !== user.id) {
+      console.error("Un doctor intentó confirmar una cita que no tiene asignada.");
+      return;
+    }
+  }
 
   const { error } = await supabase
     .from("citas")
