@@ -10,8 +10,8 @@ export function Odontograma({
   onSeleccionar,
 }: {
   dientes: DienteConEstado[];
-  seleccionado: DienteConEstado | null;
-  onSeleccionar: (diente: DienteConEstado) => void;
+  seleccionado?: DienteConEstado | null;
+  onSeleccionar?: (diente: DienteConEstado) => void;
 }) {
   return (
     <svg viewBox="0 0 820 260" className="w-full h-auto">
@@ -20,9 +20,9 @@ export function Odontograma({
           key={diente.id_diente}
           diente={diente}
           seleccionado={seleccionado?.id_diente === diente.id_diente}
-          onSeleccionar={onSeleccionar}
+          onSeleccionar={onSeleccionar ?? (() => {})}
         />
       ))}
     </svg>
   );
-}
+}  

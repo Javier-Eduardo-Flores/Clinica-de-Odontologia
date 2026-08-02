@@ -3,7 +3,7 @@
 import {useActionState, useState} from "react";
 import { signIn } from "../actions/auth";
 import Link from "next/link";
-import {Mail, Lock, Eye, EyeOff } from "lucide-react";
+import {Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -13,6 +13,10 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-clinica-light to-blue-50 px-5">
             <div className="w-full max-w-md bg-clinica-light rounded-2xl shadow-2xl p-8">
+            <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-semibold text-clinica-dark hover:text-clinica-accent transition-colors mb-4">
+                <ArrowLeft size={16} />
+                Volver al inicio
+            </Link>
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-clinica-light flex items-center justify-center">
             <Image
                     src="/diente-icon.png"

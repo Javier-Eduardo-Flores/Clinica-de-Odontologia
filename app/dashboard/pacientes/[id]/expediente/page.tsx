@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
 import { ArrowLeft, Smile, Calendar, Clock, Stethoscope } from "lucide-react";
-import { Odontograma } from "@/app/components/odontograma/Odontograma";
+import { OdontogramaPaciente } from "@/app/components/odontograma/OdontogramaPaciente";
 import { obtenerDientesConEstado } from "@/app/actions/obtener-dientes";
 
 const ESTADO_LABEL: Record<number, string> = {
@@ -182,7 +182,7 @@ export default async function ExpedientePacientePage({
           <div id="odontograma" className="bg-white rounded-xl shadow-sm p-6 mb-6 scroll-mt-8">
             <h2 className="text-xl font-sans font-bold text-gray-900 mb-4">Odontograma</h2>
             <div>
-              <Odontograma dientes={dientes} />
+              <OdontogramaPaciente dientes={dientes} />
             </div>
           </div>
 
@@ -330,4 +330,4 @@ export default async function ExpedientePacientePage({
       </div>
     </div>
   );
-}
+} 
