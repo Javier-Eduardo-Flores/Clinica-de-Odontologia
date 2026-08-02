@@ -173,7 +173,7 @@ export default function CompletarCitaForm({
               >
                 <option value="">Seleccionar tratamiento</option>
                 {tratamientosDisponibles.map((t) => (
-                  <option key={t.id_tratamiento} value={t.id_tratamiento}>{t.nombre} — ${t.precio}</option>
+                  <option key={t.id_tratamiento} value={t.id_tratamiento}>{t.nombre} — L. {t.precio}</option>
                 ))}
               </select>
               <input type="number" min="1" value={linea.cantidad} onChange={(e) => actualizarTratamiento(linea.key, "cantidad", Number(e.target.value))} className="w-16 border border-gray-300 rounded-lg p-2 font-sans text-sm" />
@@ -207,9 +207,9 @@ export default function CompletarCitaForm({
                   <option value="">Seleccionar producto</option>
                   {productosDisponibles.map((p) => (
                     <option key={p.id_producto} value={p.id_producto} disabled={p.stock <= 0}>
-                      {p.nombre} — ${p.precio} ({p.stock <= 0 ? "sin stock" : `${p.stock} disp.`})
+                      {p.nombre} — L. {p.precio} ({p.stock <= 0 ? "sin stock" : `${p.stock} disp.`})
                     </option>
-                  ))}
+                  ))} 
                 </select>
                 <input type="number" min="1" max={productoSel?.stock ?? undefined} value={linea.cantidad} onChange={(e) => actualizarProducto(linea.key, "cantidad", Number(e.target.value))} className="w-16 border border-gray-300 rounded-lg p-2 font-sans text-sm" />
                 <input type="text" placeholder="Notas" value={linea.observaciones} onChange={(e) => actualizarProducto(linea.key, "observaciones", e.target.value)} className="flex-1 border border-gray-300 rounded-lg p-2 font-sans text-sm" />
@@ -232,4 +232,4 @@ export default function CompletarCitaForm({
       </button>
     </div>
   );
-}
+} 
