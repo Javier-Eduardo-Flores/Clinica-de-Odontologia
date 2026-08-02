@@ -4,6 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { obtenerHorasDisponibles } from "@/app/actions/horarios";
 
 export type CitaState = { error: string } | { success: boolean } | null;
 
@@ -55,20 +56,20 @@ export async function agendarCita(prevState: CitaState, formData: FormData): Pro
     return { error: "Ya tienes una cita agendada para esta misma fecha y hora." };
   }
 
-  // 2. VALIDACIÓN: El doctor no puede tener citas con menos de 30 minutos de diferencia (±30 min)
-  const treintaMinutosAntes = new Date(fechaCita.getTime() - 30 * 60000).toISOString();
-  const treintaMinutosDespues = new Date(fechaCita.getTime() + 30 * 60000).toISOString();
+  // 2. VALIDACIÓN: la hora debe estar dentro de la jornada del odontólogo ese día,
+  //    y respetar al menos 30 minutos de diferencia con sus otras citas.
+  const disponibilidad = await obtenerHorasDisponibles(id_odontologo, fecha);
 
-  const { data: citasDoctor } = await supabase
-    .from("citas")
-    .select("id_cita")
-    .eq("id_odontologo", id_odontologo)
-    .in("estado", [1, 2])
-    .gte("fecha_cita", treintaMinutosAntes)
-    .lte("fecha_cita", treintaMinutosDespues);
-
-  if (citasDoctor && citasDoctor.length > 0) {
-    return { error: "El odontólogo ya tiene una cita programada en ese horario (debe haber al menos 30 min de diferencia)." };
+  if ("error" in disponibilidad) {
+    return { error: disponibilidad.error };
+  }
+  if (!disponibilidad.atiende) {
+    return { error: disponibilidad.mensaje || "El odontólogo no atiende ese día." };
+  }
+  if (!disponibilidad.horas.includes(hora)) {
+    return {
+      error: "Esa hora no está disponible: está fuera de la jornada del odontólogo o ya está ocupada (debe haber al menos 30 min de diferencia).",
+    };
   }
 
   const { data: tratamiento } = await supabase
@@ -171,21 +172,20 @@ export async function modificarCita(prevState: CitaState, formData: FormData): P
     return { error: "Ya tienes otra cita agendada para esta misma fecha y hora." };
   }
 
-  // 2. VALIDACIÓN DOCTOR (±30 min, excluyendo la cita actual)
-  const treintaMinutosAntes = new Date(fechaCita.getTime() - 30 * 60000).toISOString();
-  const treintaMinutosDespues = new Date(fechaCita.getTime() + 30 * 60000).toISOString();
+  // 2. VALIDACIÓN: la hora debe estar dentro de la jornada del odontólogo ese día,
+  //    y respetar al menos 30 minutos de diferencia con sus otras citas (excluyendo esta misma).
+  const disponibilidad = await obtenerHorasDisponibles(id_odontologo, fecha, id_cita);
 
-  const { data: citasDoctor } = await supabase
-    .from("citas")
-    .select("id_cita")
-    .eq("id_odontologo", id_odontologo)
-    .in("estado", [1, 2])
-    .gte("fecha_cita", treintaMinutosAntes)
-    .lte("fecha_cita", treintaMinutosDespues)
-    .neq("id_cita", id_cita);
-
-  if (citasDoctor && citasDoctor.length > 0) {
-    return { error: "El odontólogo ya tiene una cita en ese horario (debe haber al menos 30 min de diferencia)." };
+  if ("error" in disponibilidad) {
+    return { error: disponibilidad.error };
+  }
+  if (!disponibilidad.atiende) {
+    return { error: disponibilidad.mensaje || "El odontólogo no atiende ese día." };
+  }
+  if (!disponibilidad.horas.includes(hora)) {
+    return {
+      error: "Esa hora no está disponible: está fuera de la jornada del odontólogo o ya está ocupada (debe haber al menos 30 min de diferencia).",
+    };
   }
 
   const { data: tratamiento } = await supabase
