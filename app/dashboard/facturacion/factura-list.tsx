@@ -161,7 +161,6 @@ export default function FacturaList({
             <p className="text-sm font-sans font-semibold text-gray-900">{perfil.nombre} {perfil.apellido}</p>
             <p className="text-xs text-gray-400 capitalize">{perfil.rol}</p>
           </div>
-          <div className="w-9 h-9 rounded-full bg-gray-200" />
         </div>
       </div>
 
