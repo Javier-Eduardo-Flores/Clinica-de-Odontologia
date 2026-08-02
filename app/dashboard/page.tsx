@@ -180,7 +180,6 @@ export default async function DashboardPage() {
               <p className="text-sm font-sans font-semibold text-gray-900">{nombreCompleto}</p>
               <p className="text-xs text-gray-400 capitalize">{perfil?.rol}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-gray-200" />
           </Link>
         </header>
 
@@ -253,7 +252,6 @@ export default async function DashboardPage() {
               <div className="flex flex-col gap-4">
                 {personal?.map((p, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
                     <div className="flex-1">
                       <p className="font-sans font-semibold text-gray-900 text-sm">
                         {p.nombre} {p.apellido}
@@ -507,7 +505,6 @@ export default async function DashboardPage() {
               <p className="text-sm font-sans font-semibold text-gray-900 hover:text-clinica-dark transition-colors">{nombreCompleto}</p>
               <p className="text-xs text-gray-400">Expediente #{numeroExpediente}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-gray-200" />
           </Link>
 
           <form action={signOut}>
@@ -897,7 +894,6 @@ async function DashboardOdontologo({
               <p className="text-sm font-sans font-semibold text-gray-900">{nombreCompleto}</p>
               <p className="text-xs text-gray-400 capitalize">{perfil?.rol}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-gray-200" />
           </Link>
         </header>
 
@@ -963,8 +959,7 @@ async function DashboardOdontologo({
                 <div className="flex flex-col gap-4">
                   {personal?.map((p, i) => (
                     <div key={i} className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
-                      <div className="flex-1">
+                        <div className="flex-1">
                         <p className="font-sans font-semibold text-gray-900 text-sm">
                           {p.nombre} {p.apellido}
                         </p>
@@ -1205,7 +1200,6 @@ async function DashboardPaciente({
               <p className="text-sm font-sans font-semibold text-gray-900 hover:text-clinica-dark transition-colors">{nombreCompleto}</p>
               <p className="text-xs text-gray-400">Expediente #{numeroExpediente}</p>
             </div>
-            <div className="w-9 h-9 rounded-full bg-gray-200" />
           </Link>
 
           <form action={signOut}>

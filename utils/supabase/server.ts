@@ -13,9 +13,15 @@ export async function createClient(){
                     return cookieStore.getAll()
                 },
                 setAll(cookiesToSet){
-                    cookiesToSet.forEach(({name,value,options})=>
-                        cookieStore.set(name,value,options)
-                    );
+                    try{
+                        cookiesToSet.forEach(({name,value,options})=>
+                            cookieStore.set(name,value,options)
+                        );
+                    }catch{
+                        // Solo puede escribirse cookies en Server Actions o Route Handlers.
+                        // Si el refresco de sesión ocurre durante un render de Server Component,
+                        // se ignora: el middleware (proxy.ts) ya refresca las cookies.
+                    }
                 },
             },
         }
