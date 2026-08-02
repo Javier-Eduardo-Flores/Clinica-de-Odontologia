@@ -204,14 +204,10 @@ export default async function Home() {
 
         {/* Stats */}
         <div className="relative z-10 border-t border-clinica-medium">
-          <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div className="max-w-6xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-3 gap-6 text-center">
             <div>
-              <p className="text-3xl font-bold text-gray-300">+5</p>
-              <p className="text-sm text-gray-300 mt-1">Años de experiencia</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-gray-300">+500</p>
-              <p className="text-sm text-gray-300 mt-1">Pacientes atendidos</p>
+              <p className="text-3xl font-bold text-gray-300">9</p>
+              <p className="text-sm text-gray-300 mt-1">Especialidades</p>
             </div>
             <div>
               <p className="text-3xl font-bold text-gray-300">+10</p>
