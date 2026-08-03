@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { completarCitaCompleta } from "@/app/actions/consultas";
-import { Plus, Trash2, FingerprintPattern, ClipboardPlus} from "lucide-react";
+import { Plus, Trash2, FingerprintPattern, ClipboardPlus, PillBottle} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type Tratamiento = { id_tratamiento: string; nombre: string; precio: number };
@@ -187,9 +187,13 @@ export default function CompletarCitaForm({
       </div>
 
       <div>
+        <div className="flex items-center gap-2 mb-3">
+                    <PillBottle size={20} className="text-clinica-dark" />
+                    <p className="text-lg font-sans font-bold text-gray-900">Productos</p>
+                  </div>
         <div className="flex justify-between items-center mb-2">
-          <label className="text-sm font-sans font-semibold text-gray-700">Productos Utilizados</label>
-          <button type="button" onClick={agregarProducto} className="flex items-center gap-1 text-sm font-sans font-semibold text-clinica-dark hover:underline">
+          <label className="text-sm font-sans font-semibold text-gray-700">Desea comprar</label>
+                  <button type="button" onClick={agregarProducto} className="flex items-center gap-1 text-sm font-sans font-semibold text-clinica-dark hover:underline">
             <Plus size={16} /> Agregar Producto
           </button>
         </div>
