@@ -730,6 +730,7 @@ import Link from "next/link";
 import Sidebar from "@/app/components/sidebar";
 import StatCard from "@/app/components/statcard";
 import TratamientoForm from "@/app/components/tratamientoform";
+import DetalleTratamientoBoton from "@/app/components/detalletratamientoboton"; 
 import {
   User,
   CalendarCheck,
@@ -1357,9 +1358,12 @@ async function DashboardPaciente({
                         </td>
                         <td className="py-4 text-gray-600 font-sans text-sm">{h.doctor}</td>
                         <td className="py-4">
-                          <span title={h.diagnostico ?? "Sin diagnóstico registrado"} className="text-gray-400 inline-block">
-                            <Eye size={16} />
-                          </span>
+                              <DetalleTratamientoBoton
+                                 fecha={h.fecha}
+                                  tratamiento={h.tratamientos}
+                                    doctor={h.doctor}
+                                      diagnostico={h.diagnostico}
+                            />
                         </td>
                       </tr>
                     ))}
